@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+trap 'echo "  ✗ Error in $(basename "$0") at line $LINENO" >&2' ERR
+
+if ! command -v aerospace &>/dev/null; then
+  echo "- Aerospace is not installed. Installing Aerospace..."
+  brew install --cask nikitabobko/tap/aerospace
+  defaults write com.apple.spaces spans-displays -bool true && killall SystemUIServer
+else
+  echo "- Aerospace is already installed."
+fi

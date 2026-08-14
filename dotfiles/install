@@ -1,0 +1,15 @@
+#!/bin/bash
+
+FOLDERS=()
+
+for dir in */; do
+  if [ -d "$dir" ]; then
+    FOLDERS+=("${dir%/}")
+  fi
+done
+
+for item in "${FOLDERS[@]}"; do
+  echo "- stow $item $HOME"
+  stow -D $item -t $HOME
+  stow $item -t $HOME
+done

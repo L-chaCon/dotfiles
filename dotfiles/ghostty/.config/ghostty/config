@@ -1,0 +1,8 @@
+font-size = 17
+theme = Nordfox
+keybind = global:cmd+grave_accent=toggle_quick_terminal
+window-decoration = false
+cursor-style = bar
+cursor-style-blink = true
+shell-integration = zsh
+keybind = alt+backspace=text:\x1b\x7f
