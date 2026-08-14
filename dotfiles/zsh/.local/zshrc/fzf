@@ -19,19 +19,9 @@ _fzf_compgen_dir() {
 }
 bindkey -r "^G"
 
-# fzf git (ctrl+g+...)
-source ~/.fzf-git.sh/fzf-git.sh
-
-# Redefine this function to change the options
-_fzf_git_fzf() {
-  fzf --height=50% --tmux 90%,70% \
-    --layout=reverse --multi --min-height=20 --border \
-    --border-label-pos=2 \
-    --color='bg:black,bg+:black,fg:white,header:cyan:italic:underline,info:green,query:white' \
-    --preview-window='right,50%,border-left' \
-    --bind='ctrl-/:change-preview-window(down,50%,border-top|hidden|)' "$@"
-}
-
+# fzf git (ctrl+g+...) — self-owned, zsh-only. The _fzf_git_fzf wrapper now
+# lives inside the script; override it there if you want different options.
+source ~/.local/scripts/fzf-git.zsh
 export FZF_CTRL_T_OPTS="--preview '$BAT -n --color=always --line-range :500 {}'"
 
 _fzf_comprun() {
