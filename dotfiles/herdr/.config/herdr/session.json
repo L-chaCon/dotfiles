@@ -42,17 +42,17 @@
       "custom_name": "dotfiles",
       "identity_cwd": "/Users/octaviomontt/github.com/chaCon/dotfiles",
       "public_pane_numbers": {
-        "10": 7,
-        "4": 1,
-        "5": 2
+        "5": 2,
+        "11": 8,
+        "4": 1
       },
-      "next_public_pane_number": 8,
+      "next_public_pane_number": 14,
       "public_tab_numbers": [
         1,
         2,
-        7
+        8
       ],
-      "next_public_tab_number": 8,
+      "next_public_tab_number": 11,
       "tabs": [
         {
           "custom_name": "nvim",
@@ -91,16 +91,16 @@
         {
           "custom_name": null,
           "layout": {
-            "Pane": 10
+            "Pane": 11
           },
           "panes": {
-            "10": {
-              "cwd": "/Users/octaviomontt/github.com/chaCon/dotfiles"
+            "11": {
+              "cwd": "/Users/octaviomontt/github.com/chaCon/dotfiles/dotfiles/herdr/.config/herdr"
             }
           },
           "zoomed": false,
-          "focused": 10,
-          "root_pane": 10
+          "focused": 11,
+          "root_pane": 11
         }
       ],
       "active_tab": 2

@@ -1,9 +1,0 @@
-[theme]
-name = "nord"
-auto_switch = false
-
-[ui.sound]
-enabled = false
-
-[ui]
-agent_panel_sort = "priority"

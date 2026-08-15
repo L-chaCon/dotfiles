@@ -3,16 +3,6 @@ onboarding = false
 name = "nord"
 auto_switch = false
 
-[keys]
-prefix = "ctrl+b"
-split_vertical = "prefix+v"        # left/right (herdr default; `|` isn't a bindable key)
-split_horizontal = "prefix+minus"  # your `-`  (top/bottom)
-previous_tab = "prefix+p"          # your C-p
-next_tab = "prefix+n"              # your C-n
-resize_mode = "prefix+r"           # your prefix+arrow resize
-# focus_pane_* left at defaults: prefix+h/j/k/l
-# reload_config left at default prefix+shift+r
-
 # Ctrl-Space launches the sessionizer in a popup (fzf folder picker).
 [[keys.command]]
 key = "ctrl+space"
@@ -22,12 +12,13 @@ width = "60%"
 height = "60%"
 
 [ui]
-mouse_capture = true
 tab_bar_position = "bottom"
 agent_panel_sort = "priority"
-pane_gaps = false                  # remove padding between panes
-# pane_borders left at default (true)
-sidebar_start_collapsed = true     # start with the sidebar toggled (collapsed)
+# remove padding between panes
+pane_gaps = false
+pane_borders = false
+# start with the sidebar toggled (collapsed)
+sidebar_start_collapsed = true
 
 [ui.sound]
 enabled = false
