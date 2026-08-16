@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>pi drawio editor</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				font-family: -apple-system, system-ui, sans-serif;
+			}
+			#bar {
+				height: 28px;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				padding: 0 12px;
+				background: #f4f4f5;
+				border-bottom: 1px solid #ddd;
+				font-size: 12px;
+				color: #333;
+			}
+			#status {
+				color: #16a34a;
+			}
+			#frame {
+				border: 0;
+				width: 100%;
+				height: calc(100% - 29px);
+			}
+		</style>
+	</head>
+	<body>
+		<div id="bar">
+			<strong id="name">diagram</strong>
+			<span>Ctrl/Cmd+S in drawio to save back to pi</span>
+			<span id="status"></span>
+		</div>
+		<iframe id="frame" src="__EMBED_URL__/?embed=1&ui=min&spin=1&proto=json&libraries=1&noSaveBtn=0&saveAndExit=0"></iframe>
+
+		<script>
+			const EMBED_ORIGIN = new URL("__EMBED_URL__").origin;
+			const frame = document.getElementById("frame");
+			const statusEl = document.getElementById("status");
+			const nameEl = document.getElementById("name");
+			let currentXml = "";
+
+			function setStatus(msg) {
+				statusEl.textContent = msg;
+				if (msg) setTimeout(() => (statusEl.textContent = ""), 2500);
+			}
+
+			function send(msg) {
+				frame.contentWindow.postMessage(JSON.stringify(msg), "*");
+			}
+
+			async function loadDiagram() {
+				const res = await fetch("/api/diagram");
+				currentXml = await res.text();
+				const name = res.headers.get("x-diagram-name");
+				if (name) nameEl.textContent = name;
+			}
+
+			async function saveDiagram(xml) {
+				currentXml = xml;
+				const res = await fetch("/api/diagram", {
+					method: "POST",
+					headers: { "content-type": "application/xml" },
+					body: xml,
+				});
+				setStatus(res.ok ? "saved \u2713" : "save failed");
+			}
+
+			window.addEventListener("message", async (evt) => {
+				// drawio embed protocol messages arrive as JSON strings.
+				if (typeof evt.data !== "string" || !evt.data.startsWith("{")) return;
+				let msg;
+				try {
+					msg = JSON.parse(evt.data);
+				} catch {
+					return;
+				}
+
+				switch (msg.event) {
+					case "init":
+						await loadDiagram();
+						send({ action: "load", xml: currentXml, autosave: 1 });
+						break;
+					case "save":
+						await saveDiagram(msg.xml);
+						send({ action: "status", message: "Saved to pi", modified: false });
+						break;
+					case "autosave":
+						await saveDiagram(msg.xml);
+						break;
+					case "exit":
+						setStatus("closed \u2013 you can close this tab");
+						break;
+				}
+			});
+		</script>
+	</body>
+</html>
