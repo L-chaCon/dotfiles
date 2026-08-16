@@ -1,4 +1,4 @@
-# .chaConfig
+# Dotfiles
 
 Personal macOS developer environment setup. Manages dotfiles and bootstraps a full workstation from scratch.
 
@@ -6,17 +6,15 @@ Personal macOS developer environment setup. Manages dotfiles and bootstraps a fu
 
 | Layer | Tool |
 |---|---|
-| Shell | Zsh + Oh My Zsh + Starship prompt |
+| Shell | Zsh + Starship prompt |
 | Terminal | Ghostty |
-| Multiplexer | Tmux + Catppuccin + gitmux |
+| Multiplexer | Herdr |
 | Editor | Neovim (built from source) |
 | Window manager | AeroSpace |
 | File tools | fzf, fd, bat, lsd, ripgrep, zoxide |
-| Version control | Git (SSH + 1Password signing), delta, jj* |
-| Language tooling | pyenv, Poetry, Go*, Zig* |
-| Infrastructure | kubectl*, kafkactl*, Docker*, AWS CLI* |
+| Version control | Git, delta, jj* |
 | Dotfile manager | GNU Stow |
-| Theme | carbonfox (applied across all tools) |
+| Theme | Nord |
 
 > `*` = manually installed, not managed by the bootstrap scripts.
 
@@ -29,8 +27,8 @@ Personal macOS developer environment setup. Manages dotfiles and bootstraps a fu
 ## Bootstrap a new machine
 
 ```bash
-git clone git@github.com:L-chaCon/.chaConfig.git $HOME/github.com/chaCon/.chaConfig
-cd $HOME/github.com/chaCon/.chaConfig
+git clone git@github.com:L-chaCon/dotfiles.git $HOME/.dotfiles
+cd $HOME/.dotfiles
 ./pow
 ```
 
@@ -63,11 +61,6 @@ cd dotfiles
 ./uninstall  # remove all symlinks
 ```
 
-### Add a new package
-
-1. Create `dotfiles/<package>/` mirroring the `$HOME` path (e.g. `dotfiles/foo/.config/foo/config`)
-2. Run `cd dotfiles && stow foo -t $HOME`
-
 ## Structure
 
 ```
@@ -82,3 +75,10 @@ cd dotfiles
 │   └── 6_dotfiles     # GNU Stow + .zshrc bootstrap
 └── dotfiles/          # Stow-managed config packages
 ```
+
+## Extra
+
+This is a consolidation of:
+
+- https://github.com/L-chaCon/chaCon.nvim
+- https://github.com/L-chaCon/chaCon
