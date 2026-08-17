@@ -1,0 +1,31 @@
+# logs
+logs
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# Finder (MacOS) folder config
+.DS_Store
+
+# pi agent runtime/state (keep settings + customization resources tracked)
+agent/*
+todos/*
+
+# pi MCP adapter runtime/secrets
+agent/mcp-oauth/
+agent/mcp-cache.json
+agent/mcp-npx-cache.json
+agent/mcp-auth.json
+
+# pi extensions node_modules
+agent/extensions/**/node_modules/
+
+
+!agent/tsconfig.json
+!agent/package.json
+!agent/cloak.json
+!agent/themes/
+!agent/themes/*.json
+!agent/extensions/
+!agent/extensions/**
+!agent/mcp.json
+!agent/APPEND_SYSTEM.md
