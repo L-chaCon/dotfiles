@@ -54,6 +54,7 @@ alias -g -- --help="--help 2>&1 | bathelp"
 
 # -- Paths
 export PATH="$PATH:$HOME/.local/nvim/bin"
+export PATH="$PATH:$HOME/.local/scripts"
 
 # -- Man
 export MANPATH="/usr/local/man:$MANPATH"

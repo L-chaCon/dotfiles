@@ -1,5 +1,5 @@
 #!/bin/bash
-# verify — checks that all tools and dotfiles are properly set up after ./pow
+# verify — checks that all tools and dotfiles are properly set up after `pow init`
 
 pass=0
 fail=0
@@ -85,6 +85,10 @@ check_link "$HOME/.chaCon"                              ".chaCon"
 check_link "$HOME/.tmux.conf"                           ".tmux.conf"
 check_link "$HOME/.gitmux.conf"                         ".gitmux.conf"
 check_link "$HOME/.gitconfig"                           ".gitconfig"
+check_link "$HOME/.gitconfig.chacon"                    ".gitconfig.chacon"
+check_link "$HOME/.gitconfig.work"                      ".gitconfig.work"
+check_link "$HOME/.gitconfig.active"                    ".gitconfig.active"
+check_link "$HOME/.local/scripts/pow"                   "pow"
 check_link "$HOME/.config/ghostty/config"               "ghostty/config"
 check_link "$HOME/.config/bat/config"                   "bat/config"
 check_link "$HOME/.config/btop/btop.conf"               "btop.conf"

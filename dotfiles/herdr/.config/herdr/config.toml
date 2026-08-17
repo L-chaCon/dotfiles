@@ -20,6 +20,7 @@ pane_borders = false
 # start with the sidebar toggled (collapsed)
 sidebar_start_collapsed = true
 
+status_indicators = "symbols"
 [ui.sound]
 enabled = false
 

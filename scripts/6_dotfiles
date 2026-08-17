@@ -30,3 +30,10 @@ echo "Creating links to dotfiles"
 cd dotfiles
 ./install
 cd $current_folder
+
+# Default the active git identity profile to personal (chacon) if unset.
+# ~/.gitconfig includes ~/.gitconfig.active, so it must exist.
+if [[ ! -e "$HOME/.gitconfig.active" ]]; then
+  echo "Setting default git profile to chacon"
+  ln -sf "$HOME/.gitconfig.chacon" "$HOME/.gitconfig.active"
+fi

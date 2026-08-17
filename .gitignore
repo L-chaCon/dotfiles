@@ -1,3 +1,4 @@
 .devcontainer
 devpod
 .DS_Store
+docs/**

@@ -1,0 +1,7 @@
+# Work identity profile — activated by `pow git work`.
+# Only user-specific settings live here.
+[user]
+    name = Octavio Montt
+    username = octavio-tails
+    email = octavio.montt@tails.com
+    signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHjx+UsDkstiQx7O59Sg+1+nfDT8oUeVJ/8fHcyHkVZ6

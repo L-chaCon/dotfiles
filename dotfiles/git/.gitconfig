@@ -1,12 +1,6 @@
 [alias]
     glog = log --oneline --graph --decorate
 
-[user]
-    name = Octavio Montt
-    username = L-chaCon
-    email = montt.octavio@gmail.com 
-    signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDyvs6fmn6URtZGm67vZKtvcO1B7V8VqT1ooqq7NJvqV
-
 [gpg]
     format = ssh
 
@@ -21,8 +15,9 @@
 
 [core]
     pager = delta
-    sshCommand = "ssh -i ~/.ssh/chacon"
     excludesFile = "~/.gitignore"
+    autocrlf = input
+    safecrlf = true
 
 [interactive]
     diffFilter = delta --color-only
@@ -45,25 +40,8 @@
 [url "ssh://git@github.com/"]
     insteadOf = https://github.com/
 
-; ---------- Tails github
-; [user]
-;         name = Octavio Montt
-;         email = octavio.montt@tails.com
-;         username = octavio-tails
-;         signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHjx+UsDkstiQx7O59Sg+1+nfDT8oUeVJ/8fHcyHkVZ6
-;
-; [url "ssh://git@github.com/"]
-;         insteadOf = https://github.com/
-;
-; [gpg]
-;         format = ssh
-;
-; [gpg "ssh"]
-;         program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
-;
-; [commit]
-;         gpgsign = true
-;
-; [core]
-;         autocrlf = input
-;         safecrlf = true
+# Active identity profile. Switch with:
+#   pow git chacon
+#   pow git work
+[include]
+    path = ~/.gitconfig.active

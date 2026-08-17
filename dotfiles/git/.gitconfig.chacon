@@ -1,0 +1,7 @@
+# Personal identity profile — activated by `pow git chacon`.
+# Only user-specific settings live here.
+[user]
+    name = Octavio Montt
+    username = L-chaCon
+    email = montt.octavio@gmail.com
+    signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBKTkkbJplGxUThA0v+JNgRLXUqOPs9Awol9nSM5N6HN

@@ -43,3 +43,7 @@ vim.keymap.set("n", "<leader>as", "<cmd>%!jq -S .<cr>", { desc = "Sort JSON alph
 vim.keymap.set("n", "<leader>ar", "<cmd>%!jq -r .<cr>", { desc = "RAW JSON" })
 vim.keymap.set("n", "<leader>ac", "<cmd>%!jq -c .<cr>", { desc = "Compact JSON" })
 vim.keymap.set("n", "<leader>aR", "<cmd>%!jq -Rs .<cr>", { desc = "UN-RAW JSON" })
+
+-- Disable lazygit (I prefer git in the command line)
+pcall(vim.keymap.del, "n", "<leader>gg")
+pcall(vim.keymap.del, "n", "<leader>gG")

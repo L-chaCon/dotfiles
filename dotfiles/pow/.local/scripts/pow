@@ -1,0 +1,261 @@
+#!/bin/bash
+set -uo pipefail
+
+# ==========================================
+# pow — dotfiles command line tool
+# Commands:
+#   pow            Show help
+#   pow init       Bootstrap / run setup scripts
+#   pow git        Switch git identity profiles
+# ==========================================
+
+# ---- resolve repo root (follow symlink; this script is stowed) ----
+
+resolve_self() {
+  local src="${BASH_SOURCE[0]}"
+  while [[ -L "$src" ]]; do
+    local dir
+    dir="$(cd -P "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    [[ "$src" != /* ]] && src="$dir/$src"
+  done
+  cd -P "$(dirname "$src")" && pwd
+}
+
+self_dir="$(resolve_self)"
+# self_dir = <repo>/dotfiles/pow/.local/scripts
+repo_root="$(cd "$self_dir/../../../.." && pwd)"
+
+GIT_PROFILES=(chacon work)
+OP_SSH_SIGN="/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+
+# ---- helpers ----
+
+all_scripts() {
+  find "$repo_root/scripts" -mindepth 1 -maxdepth 1 -type f | sort
+}
+
+print_main_help() {
+  cat <<'EOF'
+Usage:
+  pow <command> [args]
+
+Commands:
+  init [args]     Run bootstrap setup scripts
+  git <profile>   Switch git identity profile
+  help            Show this help
+
+Examples:
+  pow init
+  pow init --list
+  pow init 3_tmux
+  pow git list
+  pow git current
+  pow git chacon
+  pow git work
+EOF
+}
+
+print_init_help() {
+  cat <<'EOF'
+Usage: pow init [--help] [--list] [script_name]
+
+Options:
+  --help          Show this help
+  --list          List all available scripts
+  script_name     Run a single script by name or partial match
+                  e.g. pow init 3_tmux  or  pow init tmux
+
+Without arguments, runs all scripts in order.
+EOF
+}
+
+print_git_help() {
+  cat <<'EOF'
+Usage: pow git <command>
+
+Commands:
+  list            List available git profiles
+  current         Show the active git profile
+  chacon          Switch to the personal (chacon) profile
+  work            Switch to the work profile
+EOF
+}
+
+# ---- init command ----
+
+cmd_init() {
+  if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    print_init_help
+    return 0
+  fi
+
+  if [[ "${1:-}" == "--list" ]]; then
+    echo "Available scripts:"
+    for s in $(all_scripts); do
+      echo "  $(basename "$s")"
+    done
+    return 0
+  fi
+
+  # single script mode
+  if [[ $# -gt 0 ]]; then
+    local target="$repo_root/scripts/$1"
+    if [[ ! -f "$target" ]]; then
+      local match
+      match=$(find "$repo_root/scripts" -mindepth 1 -maxdepth 1 -type f -name "*${1}*" | sort | head -1)
+      if [[ -z "$match" ]]; then
+        echo "Error: no script matching '$1'" >&2
+        echo "Run 'pow init --list' to see available scripts." >&2
+        return 1
+      fi
+      target="$match"
+    fi
+    echo "*-*   *-*   *POW!*   *-*   *-*"
+    echo "running script: $(basename "$target")"
+    echo " ---   ---   ---   ---   ---   ---"
+    ( cd "$repo_root" && "$target" )
+    return $?
+  fi
+
+  # full run
+  echo "*-*   *-*   *POW!*   *-*   *-*"
+  local actions=("BANG!" "ZAP!" "CRASH!" "POOF!" "BAM!")
+  local length=${#actions[@]}
+  local passed=() failed=() count=0
+
+  for script in $(all_scripts); do
+    echo ""
+    echo "   *   ${actions[$((count % length))]}   *   "
+    echo "running script: $(basename "$script")"
+    echo " ---   ---   ---   ---   ---   ---"
+    if ( cd "$repo_root" && "$script" ); then
+      passed+=("$(basename "$script")")
+    else
+      failed+=("$(basename "$script")")
+    fi
+    ((count++))
+  done
+
+  echo ""
+  echo "=== Summary ==="
+  for s in "${passed[@]+"${passed[@]}"}"; do
+    echo "  ✓ $s"
+  done
+  for s in "${failed[@]+"${failed[@]}"}"; do
+    echo "  ✗ $s"
+  done
+  echo ""
+
+  [[ ${#failed[@]} -gt 0 ]] && return 1
+  return 0
+}
+
+# ---- git command ----
+
+git_profile_target() {
+  # profile name -> home config file
+  echo "$HOME/.gitconfig.$1"
+}
+
+check_op_signer() {
+  if [[ ! -x "$OP_SSH_SIGN" ]]; then
+    echo "  ⚠ 1Password SSH signer not found at:" >&2
+    echo "    $OP_SSH_SIGN" >&2
+    echo "    Commit signing will fail until 1Password is installed/configured." >&2
+  fi
+}
+
+git_current_profile() {
+  local active="$HOME/.gitconfig.active"
+  if [[ ! -L "$active" && ! -e "$active" ]]; then
+    echo "none"
+    return 1
+  fi
+  local dest
+  dest="$(readlink "$active" 2>/dev/null || true)"
+  [[ -z "$dest" ]] && dest="$active"
+  basename "$dest" | sed 's/^\.gitconfig\.//'
+}
+
+set_git_profile() {
+  local profile="$1"
+  local target
+  target="$(git_profile_target "$profile")"
+
+  if [[ ! -e "$target" ]]; then
+    echo "Error: profile file not found: $target" >&2
+    echo "Is the git dotfiles package stowed?" >&2
+    return 1
+  fi
+
+  ln -sf "$target" "$HOME/.gitconfig.active"
+
+  echo "Switched git profile to: $profile"
+  local name email username
+  name="$(git config --file "$target" user.name 2>/dev/null || true)"
+  email="$(git config --file "$target" user.email 2>/dev/null || true)"
+  username="$(git config --file "$target" user.username 2>/dev/null || true)"
+  echo "  user.name:     $name"
+  echo "  user.email:    $email"
+  echo "  user.username: $username"
+
+  check_op_signer
+}
+
+cmd_git() {
+  local sub="${1:-}"
+  case "$sub" in
+    ""|--help|-h|help)
+      print_git_help
+      ;;
+    list)
+      echo "Available git profiles:"
+      local active
+      active="$(git_current_profile 2>/dev/null || echo none)"
+      for p in "${GIT_PROFILES[@]}"; do
+        if [[ "$p" == "$active" ]]; then
+          echo "  * $p (active)"
+        else
+          echo "    $p"
+        fi
+      done
+      ;;
+    current)
+      local active
+      active="$(git_current_profile)" || { echo "No active git profile set."; return 1; }
+      echo "Active git profile: $active"
+      echo "  ~/.gitconfig.active -> $(readlink "$HOME/.gitconfig.active" 2>/dev/null)"
+      ;;
+    chacon|work)
+      set_git_profile "$sub"
+      ;;
+    *)
+      echo "Error: unknown git command '$sub'" >&2
+      print_git_help >&2
+      return 1
+      ;;
+  esac
+}
+
+# ---- main router ----
+
+cmd="${1:-help}"
+[[ $# -gt 0 ]] && shift
+
+case "$cmd" in
+  help|--help|-h|"")
+    print_main_help
+    ;;
+  init)
+    cmd_init "$@"
+    ;;
+  git)
+    cmd_git "$@"
+    ;;
+  *)
+    echo "Error: unknown command '$cmd'" >&2
+    print_main_help >&2
+    exit 1
+    ;;
+esac
