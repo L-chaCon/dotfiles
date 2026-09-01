@@ -354,9 +354,10 @@ cmd_doctor() {
   [[ "$profile" != "none" ]] && __ok "Git profile: $profile" || \
     __warn "No git profile set — run: pow git chacon"
 
+  # Check symlinks — directories may be linked as a whole (correct stow behaviour)
   for l in "$HOME/.zshrc" "$HOME/.chaCon" "$HOME/.gitconfig" \
            "$HOME/.config/starship.toml" "$HOME/.config/herdr/config.toml" \
-           "$HOME/.config/btop/btop.conf" "$HOME/.local/scripts/herdr-sessionizer"; do
+           "$HOME/.config/btop/btop.conf"; do
     [[ -L "$l" ]] && __ok "symlink: $(basename "$l")" || \
       __warn "not symlinked: $l  (run: pow stow)"
   done
