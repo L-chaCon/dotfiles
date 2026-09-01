@@ -1,9 +1,0 @@
-# herdr runtime/state
-*.log
-*.sock
-session-history.json
-session.json
-release-notes.json
-plugins.json
-plugins/
-.plugins.lock

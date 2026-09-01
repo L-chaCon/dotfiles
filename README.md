@@ -1,112 +1,76 @@
-# Dotfiles
+# dotfiles
 
-Personal macOS developer environment setup. Manages dotfiles and bootstraps a full workstation from scratch.
+Personal developer environment for macOS and Omarchy (Arch Linux).
 
-## What's managed
+## Tools
 
-| Layer | Tool |
+| Category | Tool |
 |---|---|
-| Shell | Zsh + Starship prompt |
+| Shell | Zsh + Starship |
 | Terminal | Ghostty |
 | Multiplexer | Herdr |
-| Editor | Neovim (built from source) |
-| Window manager | AeroSpace |
+| Editor | Neovim (LazyVim) |
+| Window manager | AeroSpace (macOS) · Hyprland (Omarchy) |
 | File tools | fzf, fd, bat, lsd, ripgrep, zoxide |
-| Version control | Git, delta, jj* |
+| Version control | Git + delta |
+| AI agent | pi |
 | Dotfile manager | GNU Stow |
 | Theme | Nord |
 
-> `*` = manually installed, not managed by the bootstrap scripts.
+## Bootstrap — macOS
 
-## Prerequisites
-
-- macOS
-- [Homebrew](https://brew.sh) installed
-- SSH key added to GitHub (the bootstrap will prompt you)
-
-## Bootstrap a new machine
+**Manual step first (one time):**
+1. Install [1Password](https://1password.com) and sign in
+2. **Settings → Developer** → enable **Use the SSH agent**
+3. Confirm your SSH key is in your 1Password vault
 
 ```bash
-git clone git@github.com:L-chaCon/dotfiles.git $HOME/.dotfiles
-cd $HOME/.dotfiles
-./pow init
+git clone https://github.com/L-chaCon/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
+./pow init          # installs Homebrew, all packages, stows configs, sets zsh as default
+./pow link          # makes `pow` available from anywhere
+# restart terminal
+pow git chacon      # set git identity (or: pow git work)
 ```
 
-The `pow init` command runs `scripts/1_core` through `scripts/6_dotfiles` in order. Each script is idempotent — safe to re-run. After the first run, `pow` is available on your `PATH` (via `~/.local/scripts`), so you can just run `pow init` from anywhere.
+## Bootstrap — Omarchy
 
-## The `pow` command
-
-`pow` is the dotfiles CLI. Run it with no arguments to see what's available:
+**Manual step first (one time):**
+1. Open 1Password → **Settings → Developer** → enable **Use the SSH agent**
+2. Confirm your SSH key is in your 1Password vault
 
 ```bash
-pow                # show help
-pow init           # run all bootstrap scripts
-pow init --list    # list available scripts
-pow init 3_tmux    # run a single script (exact or partial match)
+git clone git@github.com:L-chaCon/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
+./pow init          # installs missing packages (lsd, git-delta, stow), stows configs, sets zsh as default
+./pow link          # makes `pow` available from anywhere
+# log out and back in (required for shell change to take effect)
+pow git chacon
 ```
 
-### Switching GitHub accounts
-
-`~/.gitconfig` holds the shared git config and includes `~/.gitconfig.active`,
-a symlink that points at the active identity profile. Switch identities with:
+## Daily use
 
 ```bash
-pow git list       # list profiles (chacon, work)
-pow git current    # show the active profile
-pow git chacon     # switch to personal identity
-pow git work       # switch to work identity
-```
-
-Only user-specific settings (name, email, username, signing key, ssh command)
-live in the profile files `~/.gitconfig.chacon` and `~/.gitconfig.work`.
-Switching warns if the 1Password SSH signer is missing.
-
-## Dotfiles
-
-Dotfiles live in `dotfiles/` and are managed with GNU Stow. Each subdirectory is a package that mirrors the `$HOME` path structure.
-
-```
-dotfiles/
-├── aerospace/    → ~/.config/aerospace/
-├── bat/          → ~/.config/bat/
-├── bin/          → ~/.local/scripts/
-├── btop/         → ~/.config/btop/
-├── dash/         → ~/.local/dashdocs/
-├── ghostty/      → ~/.config/ghostty/
-├── git/          → ~/.gitconfig, ~/.gitconfig.chacon, ~/.gitconfig.work, ~/.gitignore
-├── opencode/     → ~/.config/opencode/
-├── pow/          → ~/.local/scripts/pow
-├── starship/     → ~/.config/starship.toml
-├── tmux/         → ~/.tmux.conf, ~/.gitmux.conf
-└── zsh/          → ~/.chaCon, ~/.local/zshrc/*, ~/.config/lsd/
-```
-
-### Stow all packages
-
-```bash
-cd dotfiles
-./install    # symlink everything to $HOME
-./uninstall  # remove all symlinks
+pow update          # pull latest dotfiles + update packages + restow
+pow doctor          # health check
+pow stow            # restow after editing configs
+pow edit            # open ~/.dotfiles in $EDITOR
+pow git list        # list git profiles
+pow git current     # show active profile
+pow git chacon      # switch to personal identity
+pow git work        # switch to work identity
 ```
 
 ## Structure
 
 ```
-.chaConfig/
-├── pow                # dotfiles CLI (wrapper → dotfiles/pow/.local/scripts/pow)
-├── scripts/           # numbered setup scripts (run in order by `pow init`)
-│   ├── 1_core         # brew tools, SSH key, fonts, Ghostty
-│   ├── 2_zsh          # Zsh, Oh My Zsh, CLI tools, plugins
-│   ├── 3_tmux         # Tmux, TPM, gitmux, Catppuccin
-│   ├── 4_nvim         # Neovim (built from source) + config
-│   ├── 5_aerospace    # AeroSpace tiling WM
-│   └── 6_dotfiles     # GNU Stow + .zshrc bootstrap
-└── dotfiles/          # Stow-managed config packages
+.dotfiles/
+├── pow                 # management CLI
+├── packages/
+│   ├── Brewfile        # macOS packages (brew + casks)
+│   ├── Brewfile.work   # macOS work packages (fill in yourself)
+│   └── pacman          # Arch/Omarchy extra packages
+├── home/               # stowed to ~ on all platforms
+├── home-mac/           # stowed to ~ on macOS only (aerospace, brew PATH, 1Password mac signing)
+└── home-linux/         # stowed to ~ on Omarchy only (hyprland keybindings, 1Password linux signing)
 ```
-
-## Extra
-
-This is a consolidation of:
-
-- https://github.com/L-chaCon/chaCon.nvim
-- https://github.com/L-chaCon/chaCon

@@ -1,0 +1,68 @@
+# vim: ft=zsh
+
+# ── Plugins ────────────────────────────────────────────────────────────────────
+[[ -f ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]] && \
+  source ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+[[ -f ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] && \
+  source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# ── XDG ────────────────────────────────────────────────────────────────────────
+export XDG_CONFIG_HOME=$HOME/.config
+
+# ── History ────────────────────────────────────────────────────────────────────
+HISTFILE=~/.zsh_history
+HISTSIZE=50000
+SAVEHIST=50000
+setopt EXTENDED_HISTORY
+setopt INC_APPEND_HISTORY
+setopt SHARE_HISTORY
+setopt HIST_EXPIRE_DUPS_FIRST
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_FIND_NO_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_SAVE_NO_DUPS
+setopt HIST_VERIFY
+
+# ── Herdr sessionizer (Ctrl-Space) ─────────────────────────────────────────────
+herdr_sessionizer_widget() {
+  ~/.local/scripts/herdr-sessionizer
+  zle reset-prompt
+}
+zle -N herdr_sessionizer_widget
+bindkey '^@' herdr_sessionizer_widget
+
+# ── Options ────────────────────────────────────────────────────────────────────
+set -o vi
+export LANG=en_GB.UTF-8
+export EDITOR="nvim"
+BAT="bat"
+
+# ── Ghostty shell integration ──────────────────────────────────────────────────
+if [[ -n $GHOSTTY_RESOURCES_DIR ]]; then
+  source "$GHOSTTY_RESOURCES_DIR"/shell-integration/zsh/ghostty-integration
+fi
+
+# ── Aliases ────────────────────────────────────────────────────────────────────
+alias rm="rm -iv"
+alias bathelp="$BAT --plain --language=help"
+help() {
+  "$@" --help 2>&1 | bathelp
+}
+alias -g -- --help="--help 2>&1 | bathelp"
+
+# ── Man pager ──────────────────────────────────────────────────────────────────
+export MANPATH="/usr/local/man:$MANPATH"
+export MANPAGER="sh -c 'col -bx | $BAT -l man -p'"
+export MANROFFOPT="-c"
+
+# ── PATH ───────────────────────────────────────────────────────────────────────
+export PATH="$HOME/.local/bin:$HOME/.local/scripts:$PATH"
+# macOS: nvim built from source lives here
+[[ "$(uname)" == "Darwin" ]] && export PATH="$PATH:$HOME/.local/nvim/bin"
+
+# ── 1Password SSH agent ────────────────────────────────────────────────────────
+export SSH_AUTH_SOCK=~/.1password/agent.sock
+
+# ── Prompt ─────────────────────────────────────────────────────────────────────
+eval "$(starship init zsh)"

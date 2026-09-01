@@ -1,7 +1,437 @@
-#!/bin/bash
-# Thin wrapper so `./pow` works from the repo before dotfiles are stowed.
-# The real implementation lives in the stowed CLI at ~/.local/scripts/pow
-# (source: dotfiles/pow/.local/scripts/pow).
-set -uo pipefail
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$script_dir/dotfiles/pow/.local/scripts/pow" "$@"
+#!/usr/bin/env bash
+# pow — dotfiles management CLI
+# Usage: pow <command> [args]
+
+set -euo pipefail
+
+# ── Colours ────────────────────────────────────────────────────────────────────
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly BLUE='\033[0;34m'
+readonly CYAN='\033[0;36m'
+readonly BOLD='\033[1m'
+readonly RESET='\033[0m'
+
+# ── Paths ──────────────────────────────────────────────────────────────────────
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly DOTFILES_DIR
+readonly PACKAGES_DIR="$DOTFILES_DIR/packages"
+
+# ── Platform ───────────────────────────────────────────────────────────────────
+__is_mac()   { [[ "$(uname)" == "Darwin" ]]; }
+__is_linux() { [[ "$(uname)" == "Linux" ]]; }
+
+# ── Helpers ────────────────────────────────────────────────────────────────────
+__header()  { echo -e "\n${BOLD}${BLUE}==>${RESET} ${BOLD}$1${RESET}"; }
+__ok()      { echo -e "${GREEN}✓${RESET} $1"; }
+__err()     { echo -e "${RED}✗${RESET} $1" >&2; }
+__warn()    { echo -e "${YELLOW}⚠${RESET} $1"; }
+__info()    { echo -e "${CYAN}ℹ${RESET} $1"; }
+__cmd()     { command -v "$1" >/dev/null 2>&1; }
+
+__confirm() {
+  local prompt="$1" default="${2:-n}" resp
+  [[ "$default" == "y" ]] && prompt="$prompt [Y/n]: " || prompt="$prompt [y/N]: "
+  read -r -p "$prompt" resp
+  case "$resp" in
+    [yY]*) return 0 ;;
+    [nN]*) return 1 ;;
+    "") [[ "$default" == "y" ]] && return 0 || return 1 ;;
+    *) return 1 ;;
+  esac
+}
+
+# ── TOOL REGISTRY ──────────────────────────────────────────────────────────────
+# Fields (;; separated):
+#   name | check_cmd | installer_fn | platform | required | skip_var
+#
+# platform: all | mac | linux
+# skip_var: env var that skips this step when "true", or "-"
+TOOL_REGISTRY=(
+  "Homebrew           ;; brew     ;; __install_homebrew    ;; mac   ;; true  ;; -"
+  "Brewfile packages  ;; -        ;; __install_packages    ;; mac   ;; true  ;; -"
+  "Pacman packages    ;; pacman   ;; __install_pacman      ;; linux ;; true  ;; -"
+  "Stow dotfiles      ;; stow     ;; __stow_dotfiles       ;; all   ;; true  ;; -"
+  "ZSH plugins        ;; -        ;; __install_zsh_plugins ;; all   ;; false ;; -"
+  "Change shell       ;; -        ;; __set_zsh_default     ;; all   ;; false ;; -"
+  "SSH key            ;; -        ;; __generate_ssh_key    ;; all   ;; false ;; SKIP_SSH"
+  "JetBrains font     ;; -        ;; __install_font        ;; mac   ;; false ;; SKIP_FONT"
+)
+
+__parse_entry() {
+  local e="$1"
+  r_name="$(     awk -F';;' '{print $1}' <<< "$e" | xargs)"
+  r_check="$(    awk -F';;' '{print $2}' <<< "$e" | xargs)"
+  r_fn="$(       awk -F';;' '{print $3}' <<< "$e" | xargs)"
+  r_platform="$( awk -F';;' '{print $4}' <<< "$e" | xargs)"
+  r_required="$( awk -F';;' '{print $5}' <<< "$e" | xargs)"
+  r_skip="$(     awk -F';;' '{print $6}' <<< "$e" | xargs)"
+}
+
+__entry_applies() {
+  local platform="$1"
+  [[ "$platform" == "all" ]] && return 0
+  __is_mac   && [[ "$platform" == "mac"   ]] && return 0
+  __is_linux && [[ "$platform" == "linux" ]] && return 0
+  return 1
+}
+
+__run_registry() {
+  local step=0 total=0 r_name r_check r_fn r_platform r_required r_skip
+
+  for entry in "${TOOL_REGISTRY[@]}"; do
+    __parse_entry "$entry"
+    __entry_applies "$r_platform" || continue
+    [[ "$r_skip" != "-" && "${!r_skip:-}" == "true" ]] && continue
+    ((++total))
+  done
+
+  for entry in "${TOOL_REGISTRY[@]}"; do
+    __parse_entry "$entry"
+    __entry_applies "$r_platform" || continue
+    [[ "$r_skip" != "-" && "${!r_skip:-}" == "true" ]] && continue
+
+    ((++step))
+    echo -e "\n${BOLD}[$step/$total]${RESET} $r_name"
+
+    if "$r_fn"; then
+      true
+    elif [[ "$r_required" == "true" ]]; then
+      __err "$r_name failed — aborting"
+      return 1
+    else
+      __warn "$r_name failed (continuing)"
+    fi
+  done
+}
+
+# ── INSTALLERS ─────────────────────────────────────────────────────────────────
+
+__install_homebrew() {
+  if __cmd brew; then __ok "Homebrew already installed"; return 0; fi
+  __info "Installing Homebrew..."
+  if NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+    else
+      eval "$(/usr/local/bin/brew shellenv)"
+    fi
+    __ok "Homebrew installed"
+  else
+    __err "Homebrew installation failed"
+    return 1
+  fi
+}
+
+__install_packages() {
+  if [[ ! -f "$PACKAGES_DIR/Brewfile" ]]; then
+    __err "Brewfile not found at $PACKAGES_DIR/Brewfile"; return 1
+  fi
+  __info "Installing Brewfile packages..."
+  brew bundle --file="$PACKAGES_DIR/Brewfile" || __warn "Some packages failed"
+  __ok "Base packages installed"
+
+  if [[ -f "$PACKAGES_DIR/Brewfile.work" ]] && __confirm "Install work packages?" "n"; then
+    brew bundle --file="$PACKAGES_DIR/Brewfile.work" --no-lock || \
+      __warn "Some work packages failed"
+  fi
+}
+
+__install_pacman() {
+  if [[ ! -f "$PACKAGES_DIR/pacman" ]]; then
+    __err "Package list not found at $PACKAGES_DIR/pacman"; return 1
+  fi
+  local pkgs=()
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    pkgs+=("$line")
+  done < "$PACKAGES_DIR/pacman"
+
+  local to_install=()
+  for pkg in "${pkgs[@]}"; do
+    pacman -Q "$pkg" >/dev/null 2>&1 || to_install+=("$pkg")
+  done
+
+  if [[ ${#to_install[@]} -eq 0 ]]; then
+    __ok "All packages already installed"; return 0
+  fi
+
+  __info "Installing: ${to_install[*]}"
+  if sudo pacman -S --noconfirm "${to_install[@]}"; then
+    __ok "Packages installed"
+  else
+    __err "pacman install failed"; return 1
+  fi
+}
+
+__stow_dotfiles() {
+  if ! __cmd stow; then __err "stow not found"; return 1; fi
+
+  # Back up any real files that would conflict with stow symlinks
+  local conflicts=(
+    "$HOME/.config/starship.toml"
+    "$HOME/.config/btop/btop.conf"
+    "$HOME/.config/herdr/config.toml"
+    "$HOME/.config/ghostty/config"
+    "$HOME/.gitconfig"
+    "$HOME/.zshrc"
+    "$HOME/.chaCon"
+  )
+  for f in "${conflicts[@]}"; do
+    if [[ -f "$f" && ! -L "$f" ]]; then
+      mv "$f" "${f}.bak.$(date +%s)"
+      __info "Backed up $(basename "$f")"
+    fi
+  done
+
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+
+  stow -R -d "$DOTFILES_DIR" -t "$HOME" home || { __err "stow home/ failed"; return 1; }
+
+  if __is_mac; then
+    stow -R -d "$DOTFILES_DIR" -t "$HOME" home-mac || { __err "stow home-mac/ failed"; return 1; }
+  fi
+
+  if __is_linux; then
+    stow -R -d "$DOTFILES_DIR" -t "$HOME" home-linux || { __err "stow home-linux/ failed"; return 1; }
+  fi
+
+  [[ -f "$HOME/.ssh/config" ]] && chmod 600 "$HOME/.ssh/config"
+  __ok "Dotfiles stowed"
+}
+
+__install_zsh_plugins() {
+  local dir="$HOME/.zsh/plugins"
+  mkdir -p "$dir"
+
+  if [[ ! -d "$dir/zsh-autosuggestions" ]]; then
+    __info "Cloning zsh-autosuggestions..."
+    git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions \
+      "$dir/zsh-autosuggestions" && __ok "zsh-autosuggestions installed" || \
+      __warn "Clone failed"
+  else
+    __ok "zsh-autosuggestions already present"
+  fi
+
+  if [[ ! -d "$dir/zsh-syntax-highlighting" ]]; then
+    __info "Cloning zsh-syntax-highlighting..."
+    git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting \
+      "$dir/zsh-syntax-highlighting" && __ok "zsh-syntax-highlighting installed" || \
+      __warn "Clone failed"
+  else
+    __ok "zsh-syntax-highlighting already present"
+  fi
+}
+
+__set_zsh_default() {
+  local zsh_path
+  zsh_path="$(command -v zsh 2>/dev/null)" || { __warn "zsh not found"; return 1; }
+
+  if [[ "$SHELL" == "$zsh_path" ]]; then
+    __ok "zsh is already the default shell"; return 0
+  fi
+
+  grep -qF "$zsh_path" /etc/shells || echo "$zsh_path" | sudo tee -a /etc/shells >/dev/null
+
+  __info "Changing default shell to zsh..."
+  if chsh -s "$zsh_path"; then
+    __ok "Default shell changed to zsh"
+    __warn "Log out and back in for the change to take effect"
+  else
+    __err "chsh failed"; return 1
+  fi
+}
+
+__generate_ssh_key() {
+  local key="$HOME/.ssh/chacon"
+  if [[ -f "$key" ]]; then __ok "SSH key already exists at $key"; return 0; fi
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  __info "Generating SSH key..."
+  if ssh-keygen -t ed25519 -C "montt.octavio@gmail.com" -f "$key" -N ""; then
+    __ok "SSH key generated — add to GitHub: cat ${key}.pub"
+  else
+    __err "SSH key generation failed"; return 1
+  fi
+}
+
+__install_font() {
+  if ls "$HOME/Library/Fonts"/JetBrainsMonoNLNerdFont* >/dev/null 2>&1; then
+    __ok "JetBrains Nerd Font already installed"; return 0
+  fi
+  __info "Installing JetBrains Mono Nerd Font..."
+  brew install --cask font-jetbrains-mono-nerd-font && __ok "Font installed" || \
+    { __warn "Font installation failed"; return 1; }
+}
+
+# ── GIT IDENTITY ───────────────────────────────────────────────────────────────
+readonly GIT_PROFILES=(chacon work)
+
+__check_op_signer() {
+  local signer
+  __is_mac && signer="/Applications/1Password.app/Contents/MacOS/op-ssh-sign" \
+           || signer="/opt/1Password/op-ssh-sign"
+  [[ -x "$signer" ]] || __warn "op-ssh-sign not found at $signer — commit signing may fail"
+}
+
+__git_active_profile() {
+  local active="$HOME/.gitconfig.active"
+  [[ ! -e "$active" ]] && echo "none" && return 1
+  basename "$(readlink "$active" 2>/dev/null || echo "$active")" | sed 's/^\.gitconfig\.//'
+}
+
+__set_git_profile() {
+  local profile="$1" target="$HOME/.gitconfig.$1"
+  [[ -f "$target" ]] || { __err "Profile file not found: $target (run pow stow first)"; return 1; }
+  ln -sf "$target" "$HOME/.gitconfig.active"
+  __ok "Git profile → $profile"
+  echo "  name:     $(git config --file "$target" user.name 2>/dev/null || true)"
+  echo "  email:    $(git config --file "$target" user.email 2>/dev/null || true)"
+  echo "  username: $(git config --file "$target" user.username 2>/dev/null || true)"
+  __check_op_signer
+}
+
+# ── COMMANDS ───────────────────────────────────────────────────────────────────
+
+cmd_init() {
+  local SKIP_SSH=false SKIP_FONT=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --skip-ssh)  SKIP_SSH=true ;;
+      --skip-font) SKIP_FONT=true ;;
+      -h|--help) echo "Usage: pow init [--skip-ssh] [--skip-font]"; return 0 ;;
+      *) __err "Unknown option: $1"; return 1 ;;
+    esac
+    shift
+  done
+  __header "Initialising dotfiles ($(uname))"
+  __run_registry
+  __header "Done 🎉  — run: ./pow link  then restart your terminal"
+}
+
+cmd_update() {
+  __header "Updating dotfiles"
+  git -C "$DOTFILES_DIR" pull || { __err "git pull failed"; return 1; }
+  __ok "Repository updated"
+  __is_mac   && brew update && brew upgrade && __ok "Homebrew packages updated"
+  __is_linux && sudo pacman -Syu --noconfirm && __ok "System packages updated"
+  __stow_dotfiles
+  __ok "Update complete"
+}
+
+cmd_doctor() {
+  __header "Running diagnostics ($(uname))"
+  local issues=0
+
+  for t in nvim zsh starship fzf bat zoxide lsd delta herdr stow git; do
+    __cmd "$t" && __ok "$t" || __warn "$t not found"
+  done
+
+  __is_mac && { __cmd brew && __ok "brew" || { __err "brew missing"; ((++issues)); }; }
+  __is_mac && { __cmd aerospace && __ok "aerospace" || __warn "aerospace not found"; }
+
+  local zsh_path; zsh_path="$(command -v zsh 2>/dev/null || true)"
+  if [[ "$SHELL" == "$zsh_path" ]]; then
+    __ok "zsh is default shell"
+  else
+    __warn "Default shell is $SHELL — run: pow init"; ((++issues))
+  fi
+
+  [[ -d "$HOME/.zsh/plugins/zsh-autosuggestions" ]] && \
+    __ok "zsh-autosuggestions" || __warn "zsh-autosuggestions missing"
+  [[ -d "$HOME/.zsh/plugins/zsh-syntax-highlighting" ]] && \
+    __ok "zsh-syntax-highlighting" || __warn "zsh-syntax-highlighting missing"
+
+  if [[ -S "$HOME/.1password/agent.sock" ]]; then
+    __ok "1Password SSH agent socket present"
+  else
+    __warn "1Password SSH agent socket missing (~/.1password/agent.sock)"
+    __info "Fix: 1Password → Settings → Developer → Use the SSH agent"
+    ((++issues))
+  fi
+
+  local profile; profile="$(__git_active_profile 2>/dev/null || echo none)"
+  [[ "$profile" != "none" ]] && __ok "Git profile: $profile" || \
+    __warn "No git profile set — run: pow git chacon"
+
+  for l in "$HOME/.zshrc" "$HOME/.chaCon" "$HOME/.gitconfig" \
+           "$HOME/.config/starship.toml" "$HOME/.config/herdr/config.toml" \
+           "$HOME/.config/btop/btop.conf" "$HOME/.local/scripts/herdr-sessionizer"; do
+    [[ -L "$l" ]] && __ok "symlink: $(basename "$l")" || \
+      __warn "not symlinked: $l  (run: pow stow)"
+  done
+
+  __cmd pow && __ok "pow is on PATH" || { __warn "pow not on PATH — run: pow link"; ((++issues)); }
+
+  [[ $issues -eq 0 ]] && __header "All checks passed ✨" || __header "$issues issue(s) found"
+}
+
+cmd_stow()   { __header "Stowing dotfiles"; __stow_dotfiles; }
+
+cmd_link() {
+  __header "Linking pow to PATH"
+  mkdir -p "$HOME/.local/bin"
+  ln -sf "$DOTFILES_DIR/pow" "$HOME/.local/bin/pow"
+  __ok "Linked: ~/.local/bin/pow → $DOTFILES_DIR/pow"
+  __info "~/.local/bin is on PATH after your first zsh session"
+}
+
+cmd_unlink() {
+  __header "Unlinking pow"
+  local link="$HOME/.local/bin/pow"
+  [[ -L "$link" ]] && rm "$link" && __ok "Removed $link" || __warn "No symlink at $link"
+}
+
+cmd_edit() {
+  __cmd "${EDITOR:-nvim}" || { __err "Editor '${EDITOR:-nvim}' not found"; return 1; }
+  exec "${EDITOR:-nvim}" "$DOTFILES_DIR"
+}
+
+cmd_git() {
+  local sub="${1:-help}"; shift || true
+  case "$sub" in
+    list)
+      local active; active="$(__git_active_profile 2>/dev/null || echo none)"
+      for p in "${GIT_PROFILES[@]}"; do
+        [[ "$p" == "$active" ]] && echo "  * $p (active)" || echo "    $p"
+      done ;;
+    current)
+      __git_active_profile || { echo "No active profile"; return 1; } ;;
+    chacon|work) __set_git_profile "$sub" ;;
+    *) echo "Usage: pow git list|current|chacon|work" ;;
+  esac
+}
+
+# ── MAIN ───────────────────────────────────────────────────────────────────────
+cmd="${1:-help}"; [[ $# -gt 0 ]] && shift || true
+case "$cmd" in
+  init)    cmd_init    "$@" ;;
+  update)  cmd_update  "$@" ;;
+  doctor)  cmd_doctor  "$@" ;;
+  stow)    cmd_stow    "$@" ;;
+  link)    cmd_link    "$@" ;;
+  unlink)  cmd_unlink  "$@" ;;
+  edit)    cmd_edit    "$@" ;;
+  git)     cmd_git     "$@" ;;
+  -h|--help|help|"")
+    cat <<EOF
+${BOLD}pow${RESET} — dotfiles management
+
+${BOLD}USAGE${RESET}  pow <command> [args]
+
+${BOLD}COMMANDS${RESET}
+  init    [--skip-ssh] [--skip-font]   Bootstrap new machine
+  update                               Pull latest + update packages + restow
+  doctor                               Health check
+  stow                                 (Re)stow dotfiles
+  link                                 Install pow to ~/.local/bin
+  unlink                               Remove pow from ~/.local/bin
+  edit                                 Open dotfiles in \$EDITOR
+  git     list|current|chacon|work     Switch git identity profile
+
+${BOLD}FIRST RUN${RESET}
+  cd ~/.dotfiles && ./pow init && ./pow link
+EOF
+    ;;
+  *) __err "Unknown command: $cmd"; echo "Run 'pow help'"; exit 1 ;;
+esac

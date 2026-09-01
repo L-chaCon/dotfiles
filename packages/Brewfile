@@ -1,0 +1,31 @@
+tap "nikitabobko/tap"
+
+# Shell & prompt
+brew "zsh"
+brew "starship"
+
+# Core CLI tools
+brew "bat"
+brew "btop"
+brew "fd"
+brew "fzf"
+brew "git-delta"
+brew "jq"
+brew "lsd"
+brew "ripgrep"
+brew "stow"
+brew "tldr"
+brew "tree"
+brew "zoxide"
+
+# Dev tools
+brew "herdr"
+brew "mise"
+brew "neovim"
+brew "gh"
+brew "sshs"
+
+# Apps
+cask "nikitabobko/tap/aerospace"
+cask "font-jetbrains-mono-nerd-font"
+cask "ghostty"

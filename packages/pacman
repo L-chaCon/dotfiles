@@ -1,0 +1,5 @@
+# Extra packages for Arch/Omarchy
+# Everything else is pre-installed by Omarchy
+lsd
+git-delta
+stow

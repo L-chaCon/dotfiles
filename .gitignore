@@ -1,4 +1,16 @@
-.devcontainer
-devpod
+# Stow-generated backup files
+*.bak.*
+
+# Work-only shell module — never commit, lives locally on work machines only
+home/.local/zshrc/tails
+
+# Herdr session/log files
+dotfiles/herdr/.config/herdr/*.log
+home/.config/herdr/*.log
+home/.config/herdr/settings.json
+
+# Lazy-lock — regenerated automatically by nvim
+# home/.config/nvim/lazy-lock.json
+
+# macOS
 .DS_Store
-docs/**
