@@ -5,16 +5,28 @@
 set -euo pipefail
 
 # ── Colours ────────────────────────────────────────────────────────────────────
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[0;33m'
-readonly BLUE='\033[0;34m'
-readonly CYAN='\033[0;36m'
-readonly BOLD='\033[1m'
-readonly RESET='\033[0m'
+readonly RED=$'\033[0;31m'
+readonly GREEN=$'\033[0;32m'
+readonly YELLOW=$'\033[0;33m'
+readonly BLUE=$'\033[0;34m'
+readonly CYAN=$'\033[0;36m'
+readonly BOLD=$'\033[1m'
+readonly RESET=$'\033[0m'
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks so DOTFILES_DIR always points to the repo root,
+# even when pow is invoked via the ~/.local/bin/pow symlink.
+__resolve_script_dir() {
+  local src="${BASH_SOURCE[0]}"
+  while [[ -L "$src" ]]; do
+    local dir
+    dir="$(cd -P "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    [[ "$src" != /* ]] && src="$dir/$src"
+  done
+  cd -P "$(dirname "$src")" && pwd
+}
+DOTFILES_DIR="$(__resolve_script_dir)"
 readonly DOTFILES_DIR
 readonly PACKAGES_DIR="$DOTFILES_DIR/packages"
 
