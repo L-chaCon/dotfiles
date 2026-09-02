@@ -7,7 +7,6 @@ source $HOME/.local/zshrc/personal
 source $HOME/.local/zshrc/fzf
 source $HOME/.local/zshrc/lsd
 source $HOME/.local/zshrc/zoxie
-source $HOME/.local/zshrc/opencode
 
 # ── Platform: macOS only ───────────────────────────────────────────────────────
 [[ "$(uname)" == "Darwin" ]] && \
