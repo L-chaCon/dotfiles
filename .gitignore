@@ -10,7 +10,7 @@ home/.config/herdr/*.log
 home/.config/herdr/settings.json
 
 # Lazy-lock — regenerated automatically by nvim
-# home/.config/nvim/lazy-lock.json
+home/.config/nvim/lazy-lock.json
 
 # macOS
 .DS_Store
