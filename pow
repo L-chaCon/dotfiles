@@ -66,6 +66,7 @@ TOOL_REGISTRY=(
   "Pacman packages    ;; pacman   ;; __install_pacman      ;; linux ;; true  ;; -"
   "Stow dotfiles      ;; stow     ;; __stow_dotfiles       ;; all   ;; true  ;; -"
   "ZSH plugins        ;; -        ;; __install_zsh_plugins ;; all   ;; false ;; -"
+  "pi extensions      ;; pi       ;; __install_pi_packages ;; all   ;; false ;; -"
   "Change shell       ;; -        ;; __set_zsh_default     ;; all   ;; false ;; -"
   "SSH key            ;; -        ;; __generate_ssh_key    ;; all   ;; false ;; SKIP_SSH"
   "JetBrains font     ;; -        ;; __install_font        ;; mac   ;; false ;; SKIP_FONT"
@@ -236,6 +237,34 @@ __install_zsh_plugins() {
   fi
 }
 
+__install_pi_packages() {
+  if ! __cmd pi; then
+    __warn "pi not found in PATH — skipping pi extensions"
+    return 1
+  fi
+  if [[ ! -f "$PACKAGES_DIR/pi" ]]; then
+    __warn "No pi package list at $PACKAGES_DIR/pi"
+    return 0
+  fi
+
+  local installed source
+  installed="$(pi list 2>/dev/null || true)"
+
+  while IFS= read -r source; do
+    [[ -z "$source" || "$source" == \#* ]] && continue
+    if grep -qF "$source" <<< "$installed"; then
+      __ok "$source already installed"
+      continue
+    fi
+    __info "Installing $source..."
+    if pi install "$source"; then
+      __ok "$source installed"
+    else
+      __warn "Failed to install $source"
+    fi
+  done < "$PACKAGES_DIR/pi"
+}
+
 __set_zsh_default() {
   local zsh_path
   zsh_path="$(command -v zsh 2>/dev/null)" || { __warn "zsh not found"; return 1; }
@@ -328,6 +357,11 @@ cmd_update() {
   __is_mac   && brew update && brew upgrade && __ok "Homebrew packages updated"
   __is_linux && sudo pacman -Syu --noconfirm && __ok "System packages updated"
   __stow_dotfiles
+  if __cmd pi; then
+    __info "Updating pi and extensions..."
+    pi update --all 2>/dev/null || pi update 2>/dev/null || __warn "pi update failed"
+    __install_pi_packages
+  fi
   __ok "Update complete"
 }
 
@@ -338,6 +372,17 @@ cmd_doctor() {
   for t in nvim zsh starship fzf bat zoxide lsd delta herdr stow git; do
     __cmd "$t" && __ok "$t" || __warn "$t not found"
   done
+
+  # pi extensions declared in packages/pi
+  if __cmd pi && [[ -f "$PACKAGES_DIR/pi" ]]; then
+    local installed source
+    installed="$(pi list 2>/dev/null || true)"
+    while IFS= read -r source; do
+      [[ -z "$source" || "$source" == \#* ]] && continue
+      grep -qF "$source" <<< "$installed" && __ok "pi: $source" || \
+        __warn "pi extension missing: $source  (run: pow init)"
+    done < "$PACKAGES_DIR/pi"
+  fi
 
   __is_mac && { __cmd brew && __ok "brew" || { __err "brew missing"; ((++issues)); }; }
   __is_mac && { __cmd aerospace && __ok "aerospace" || __warn "aerospace not found"; }

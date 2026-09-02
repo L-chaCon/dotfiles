@@ -69,7 +69,8 @@ pow git work        # switch to work identity
 ├── packages/
 │   ├── Brewfile        # macOS packages (brew + casks)
 │   ├── Brewfile.work   # macOS work packages (fill in yourself)
-│   └── pacman          # Arch/Omarchy extra packages
+│   ├── pacman          # Arch/Omarchy extra packages
+│   └── pi              # pi extensions (all platforms)
 ├── home/               # stowed to ~ on all platforms
 ├── home-mac/           # stowed to ~ on macOS only (aerospace, brew PATH, 1Password mac signing)
 └── home-linux/         # stowed to ~ on Omarchy only (hyprland keybindings, 1Password linux signing)
