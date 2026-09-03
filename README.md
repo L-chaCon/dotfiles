@@ -1,84 +1,77 @@
-# .chaConfig
+# dotfiles
 
-Personal macOS developer environment setup. Manages dotfiles and bootstraps a full workstation from scratch.
+Personal developer environment for macOS and Omarchy (Arch Linux).
 
-## What's managed
+## Tools
 
-| Layer | Tool |
+| Category | Tool |
 |---|---|
-| Shell | Zsh + Oh My Zsh + Starship prompt |
+| Shell | Zsh + Starship |
 | Terminal | Ghostty |
-| Multiplexer | Tmux + Catppuccin + gitmux |
-| Editor | Neovim (built from source) |
-| Window manager | AeroSpace |
+| Multiplexer | Herdr |
+| Editor | Neovim (LazyVim) |
+| Window manager | AeroSpace (macOS) · Hyprland (Omarchy) |
 | File tools | fzf, fd, bat, lsd, ripgrep, zoxide |
-| Version control | Git (SSH + 1Password signing), delta, jj* |
-| Language tooling | pyenv, Poetry, Go*, Zig* |
-| Infrastructure | kubectl*, kafkactl*, Docker*, AWS CLI* |
+| Version control | Git + delta |
+| AI agent | pi |
 | Dotfile manager | GNU Stow |
-| Theme | carbonfox (applied across all tools) |
+| Theme | Nord |
 
-> `*` = manually installed, not managed by the bootstrap scripts.
+## Bootstrap — macOS
 
-## Prerequisites
-
-- macOS
-- [Homebrew](https://brew.sh) installed
-- SSH key added to GitHub (the bootstrap will prompt you)
-
-## Bootstrap a new machine
+**Manual step first (one time):**
+1. Install [1Password](https://1password.com) and sign in
+2. **Settings → Developer** → enable **Use the SSH agent**
+3. Confirm your SSH key is in your 1Password vault
 
 ```bash
-git clone git@github.com:L-chaCon/.chaConfig.git $HOME/github.com/chaCon/.chaConfig
-cd $HOME/github.com/chaCon/.chaConfig
-./pow
+git clone https://github.com/L-chaCon/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
+./pow init          # installs Homebrew, all packages, stows configs, sets zsh as default
+./pow link          # makes `pow` available from anywhere
+# restart terminal
+pow git chacon      # set git identity (or: pow git work)
 ```
 
-The `pow` script runs `scripts/1_core` through `scripts/6_dotfiles` in order. Each script is idempotent — safe to re-run.
+## Bootstrap — Omarchy
 
-## Dotfiles
-
-Dotfiles live in `dotfiles/` and are managed with GNU Stow. Each subdirectory is a package that mirrors the `$HOME` path structure.
-
-```
-dotfiles/
-├── aerospace/    → ~/.config/aerospace/
-├── bat/          → ~/.config/bat/
-├── bin/          → ~/.local/scripts/
-├── btop/         → ~/.config/btop/
-├── dash/         → ~/.local/dashdocs/
-├── ghostty/      → ~/.config/ghostty/
-├── git/          → ~/.gitconfig, ~/.gitignore
-├── opencode/     → ~/.config/opencode/
-├── starship/     → ~/.config/starship.toml
-├── tmux/         → ~/.tmux.conf, ~/.gitmux.conf
-└── zsh/          → ~/.chaCon, ~/.local/zshrc/*, ~/.config/lsd/
-```
-
-### Stow all packages
+**Manual step first (one time):**
+1. Open 1Password → **Settings → Developer** → enable **Use the SSH agent**
+2. Confirm your SSH key is in your 1Password vault
 
 ```bash
-cd dotfiles
-./install    # symlink everything to $HOME
-./uninstall  # remove all symlinks
+git clone git@github.com:L-chaCon/dotfiles.git ~/.dotfiles
+cd ~/.dotfiles
+./pow init          # installs missing packages (lsd, git-delta, stow), stows configs, sets zsh as default
+./pow link          # makes `pow` available from anywhere
+# log out and back in (required for shell change to take effect)
+pow git chacon
 ```
 
-### Add a new package
+## Daily use
 
-1. Create `dotfiles/<package>/` mirroring the `$HOME` path (e.g. `dotfiles/foo/.config/foo/config`)
-2. Run `cd dotfiles && stow foo -t $HOME`
+```bash
+pow update          # pull latest dotfiles + update packages + restow
+pow doctor          # health check
+pow stow            # restow after editing configs
+pow edit            # open ~/.dotfiles in $EDITOR
+pow git list        # list git profiles
+pow git current     # show active profile
+pow git chacon      # switch to personal identity
+pow git work        # switch to work identity
+```
 
 ## Structure
 
 ```
-.chaConfig/
-├── pow                # master bootstrap runner
-├── scripts/           # numbered setup scripts (run in order by pow)
-│   ├── 1_core         # brew tools, SSH key, fonts, Ghostty
-│   ├── 2_zsh          # Zsh, Oh My Zsh, CLI tools, plugins
-│   ├── 3_tmux         # Tmux, TPM, gitmux, Catppuccin
-│   ├── 4_nvim         # Neovim (built from source) + config
-│   ├── 5_aerospace    # AeroSpace tiling WM
-│   └── 6_dotfiles     # GNU Stow + .zshrc bootstrap
-└── dotfiles/          # Stow-managed config packages
+.dotfiles/
+├── pow                 # management CLI
+├── packages/
+│   ├── Brewfile        # macOS packages (brew + casks)
+│   ├── Brewfile.work   # macOS work packages (fill in yourself)
+│   ├── pacman          # Arch/Omarchy extra packages
+│   └── pi              # pi extensions (all platforms)
+├── home/               # stowed to ~ on all platforms
+├── home-mac/           # stowed to ~ on macOS only (aerospace, brew PATH, 1Password mac signing)
+└── home-linux/         # stowed to ~ on Omarchy only (hyprland keybindings, 1Password linux signing)
 ```

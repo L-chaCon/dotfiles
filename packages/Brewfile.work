@@ -1,0 +1,6 @@
+# Work-only brew packages — formulas only, no casks
+# Uncomment or add packages as needed for your work machine
+
+# brew "kubectl"
+# brew "awscli"
+# brew "kubelogin"

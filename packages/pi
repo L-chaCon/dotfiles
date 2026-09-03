@@ -1,0 +1,4 @@
+# pi extensions installed on every platform (macOS + Omarchy)
+# Applied by `pow init` / `pow update` via: pi install <source>
+# One source per line. Comments (#) and blank lines are ignored.
+npm:@plannotator/pi-extension
