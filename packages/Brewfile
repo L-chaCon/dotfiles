@@ -1,12 +1,10 @@
 tap "nikitabobko/tap"
 
 # Shell & prompt
-brew "zsh"
 brew "starship"
 
 # Core CLI tools
 brew "bat"
-brew "btop"
 brew "fd"
 brew "fzf"
 brew "git-delta"

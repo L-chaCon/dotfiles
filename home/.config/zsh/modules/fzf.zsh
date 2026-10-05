@@ -13,14 +13,11 @@ _fzf_compgen_path() {
   fd --hidden --exclude .git . "$1"
 }
 
-# Use fd to generate the list for directory completion
 _fzf_compgen_dir() {
   fd --type=d --hidden --exclude .git . "$1"
 }
-bindkey -r "^G"
 
-# fzf git (ctrl+g+...) — self-owned, zsh-only. The _fzf_git_fzf wrapper now
-# lives inside the script; override it there if you want different options.
+bindkey -r "^G"
 source ~/.local/scripts/fzf-git.zsh
 export FZF_CTRL_T_OPTS="--preview '$BAT -n --color=always --line-range :500 {}'"
 
@@ -28,9 +25,9 @@ _fzf_comprun() {
   local command=$1
   shift
   case "$command" in
-    cd)           fzf --preview 'lsd --tree {} | head -200' "$@" ;;
-    export|unset) fzf --preview "eval 'echo $'{}"         "$@" ;;
-    ssh)          fzf --preview 'dig {}'                   "$@" ;;
-    *)            fzf --preview "$BAT -n --color=always --line-range :500 {}" "$@" ;;
+    cd) fzf --preview 'lsd --tree {} | head -200' "$@" ;;
+    export|unset) fzf --preview "eval 'echo $'{}" "$@" ;;
+    ssh) fzf --preview 'dig {}' "$@" ;;
+    *) fzf --preview "$BAT -n --color=always --line-range :500 {}" "$@" ;;
   esac
 }

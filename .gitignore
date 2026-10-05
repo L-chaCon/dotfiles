@@ -1,16 +1,13 @@
 # Stow-generated backup files
 *.bak.*
 
-# Work-only shell module — never commit, lives locally on work machines only
-home/.local/zshrc/tails
-
-# Herdr session/log files
-dotfiles/herdr/.config/herdr/*.log
+# Herdr runtime/state files
 home/.config/herdr/*.log
-home/.config/herdr/settings.json
+home/.config/herdr/session.json
+home/.config/herdr/release-notes.json
+home/.config/herdr/.plugins.lock
 
-# Lazy-lock — regenerated automatically by nvim
-home/.config/nvim/lazy-lock.json
+# Neovim lockfile is intentionally tracked
 
 # macOS
 .DS_Store

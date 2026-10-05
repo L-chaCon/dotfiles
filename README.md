@@ -27,7 +27,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 ```bash
 git clone https://github.com/L-chaCon/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-./pow init          # installs Homebrew, all packages, stows configs, sets zsh as default
+./pow init          # installs Homebrew, packages, stows configs, writes a small ~/.zshrc loader
 ./pow link          # makes `pow` available from anywhere
 # restart terminal
 pow git chacon      # set git identity (or: pow git work)
@@ -42,9 +42,9 @@ pow git chacon      # set git identity (or: pow git work)
 ```bash
 git clone git@github.com:L-chaCon/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-./pow init          # installs missing packages (lsd, git-delta, stow), stows configs, sets zsh as default
+./pow init          # installs missing packages, stows configs, writes a small ~/.zshrc loader
 ./pow link          # makes `pow` available from anywhere
-# log out and back in (required for shell change to take effect)
+# log out and back in if pow changed your login shell
 pow git chacon
 ```
 
@@ -72,6 +72,6 @@ pow git work        # switch to work identity
 │   ├── pacman          # Arch/Omarchy extra packages
 │   └── pi              # pi extensions (all platforms)
 ├── home/               # stowed to ~ on all platforms
-├── home-mac/           # stowed to ~ on macOS only (aerospace, brew PATH, 1Password mac signing)
-└── home-linux/         # stowed to ~ on Omarchy only (hyprland keybindings, 1Password linux signing)
+├── home-mac/           # stowed to ~ on macOS only (AeroSpace, Ghostty, 1Password mac signing)
+└── home-linux/         # stowed to ~ on Omarchy only (Hyprland, 1Password linux signing)
 ```
