@@ -1,4 +1,7 @@
 # vim: ft=zsh
+# Core interactive shell config.
+# ~/.zshrc only needs to source this file from the managed dotfiles block.
+# Keep machine-specific or tool-managed edits in ~/.zshrc itself, outside that block.
 
 # ── Plugins ────────────────────────────────────────────────────────────────────
 [[ -f ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]] && \
@@ -7,7 +10,7 @@
   source ~/.zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # ── XDG ────────────────────────────────────────────────────────────────────────
-export XDG_CONFIG_HOME=$HOME/.config
+export XDG_CONFIG_HOME="$HOME/.config"
 
 # ── History ────────────────────────────────────────────────────────────────────
 HISTFILE=~/.zsh_history
@@ -34,9 +37,9 @@ bindkey '^@' herdr_sessionizer_widget
 
 # ── Options ────────────────────────────────────────────────────────────────────
 set -o vi
-export LANG=en_GB.UTF-8
+export LANG="en_GB.UTF-8"
 export EDITOR="nvim"
-BAT="bat"
+export BAT="bat"
 
 # ── Ghostty shell integration ──────────────────────────────────────────────────
 if [[ -n $GHOSTTY_RESOURCES_DIR ]]; then
@@ -51,18 +54,24 @@ help() {
 }
 alias -g -- --help="--help 2>&1 | bathelp"
 
-# ── Man pager ──────────────────────────────────────────────────────────────────
-export MANPATH="/usr/local/man:$MANPATH"
-export MANPAGER="sh -c 'col -bx | $BAT -l man -p'"
-export MANROFFOPT="-c"
-
 # ── PATH ───────────────────────────────────────────────────────────────────────
 export PATH="$HOME/.local/bin:$HOME/.local/scripts:$PATH"
-# macOS: nvim built from source lives here
 [[ "$(uname)" == "Darwin" ]] && export PATH="$PATH:$HOME/.local/nvim/bin"
 
 # ── 1Password SSH agent ────────────────────────────────────────────────────────
-export SSH_AUTH_SOCK=~/.1password/agent.sock
+export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"
+
+# ── Modules ────────────────────────────────────────────────────────────────────
+# Intentionally split into small files: common modules are always loaded,
+# platform modules are conditional, and work modules are opt-in from ~/.zshrc.
+source "$HOME/.config/zsh/modules/personal.zsh"
+source "$HOME/.config/zsh/modules/fzf.zsh"
+source "$HOME/.config/zsh/modules/lsd.zsh"
+source "$HOME/.config/zsh/modules/zoxide.zsh"
+
+[[ "$(uname)" == "Darwin" ]] && \
+  [[ -f "$HOME/.config/zsh/modules/brew.zsh" ]] && \
+  source "$HOME/.config/zsh/modules/brew.zsh"
 
 # ── Prompt ─────────────────────────────────────────────────────────────────────
 eval "$(starship init zsh)"
