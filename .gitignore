@@ -7,7 +7,5 @@ home/.config/herdr/session.json
 home/.config/herdr/release-notes.json
 home/.config/herdr/.plugins.lock
 
-# Neovim lockfile is intentionally tracked
-
 # macOS
 .DS_Store

@@ -1,4 +1,7 @@
 # vim: ft=zsh
+# Core interactive shell config.
+# ~/.zshrc only needs to source this file from the managed dotfiles block.
+# Keep machine-specific or tool-managed edits in ~/.zshrc itself, outside that block.
 
 # ── Plugins ────────────────────────────────────────────────────────────────────
 [[ -f ~/.zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]] && \
@@ -59,6 +62,8 @@ export PATH="$HOME/.local/bin:$HOME/.local/scripts:$PATH"
 export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"
 
 # ── Modules ────────────────────────────────────────────────────────────────────
+# Intentionally split into small files: common modules are always loaded,
+# platform modules are conditional, and work modules are opt-in from ~/.zshrc.
 source "$HOME/.config/zsh/modules/personal.zsh"
 source "$HOME/.config/zsh/modules/fzf.zsh"
 source "$HOME/.config/zsh/modules/lsd.zsh"
