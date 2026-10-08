@@ -3,7 +3,7 @@
 #
 # Recreates the tmux-sessionizer workflow under Herdr:
 #   tab "nvim"  -> auto-restarting nvim  (while true; do nvim; done)
-#   tab "pi"    -> auto-restarting pi TUI (while true; do pi --tui-mode fullscreen; done)
+#   tab "pi"    -> auto-restarting pi (while true; do pi; done)
 #   tab "shell" -> plain interactive shell  (focused on entry)
 #
 # Works both inside a Herdr pane and from a plain terminal:
@@ -43,7 +43,7 @@ inside_herdr=0
 ensure_server() {
   herdr status server >/dev/null 2>&1 && return 0
   # Only auto-start from outside Herdr; inside, the server must already be up.
-  (( inside_herdr )) && return 1
+  ((inside_herdr)) && return 1
   nohup herdr server >/dev/null 2>&1 &
   disown 2>/dev/null || true
   for _ in $(seq 1 50); do
@@ -72,22 +72,25 @@ else
   selected=$(fd -H --max-depth=1 --type d . $search_paths 2>/dev/null | fzf)
 fi
 
-[[ -z ${selected:-} ]] && { echo "No folder selected. Exiting."; exit 0; }
+[[ -z ${selected:-} ]] && {
+  echo "No folder selected. Exiting."
+  exit 0
+}
 selected=${selected%/}
 selected_name=$(basename "$selected" | tr . _)
 
 # Attach the TUI when we started from a plain terminal, so the user actually
 # lands inside the focused workspace. No-op when already inside Herdr.
 attach_if_outside() {
-  (( inside_herdr )) && return 0
+  ((inside_herdr)) && return 0
   exec herdr
 }
 
 # If a workspace with this label already exists, just focus it.
-existing_ws=$(herdr workspace list 2>/dev/null \
-  | jq -r --arg name "$selected_name" \
-      '.result.workspaces[]? | select(.label == $name) | .workspace_id' \
-  | head -n1)
+existing_ws=$(herdr workspace list 2>/dev/null |
+  jq -r --arg name "$selected_name" \
+    '.result.workspaces[]? | select(.label == $name) | .workspace_id' |
+  head -n1)
 
 if [[ -n ${existing_ws:-} ]]; then
   herdr workspace focus "$existing_ws" >/dev/null
@@ -98,16 +101,16 @@ fi
 
 # Create the workspace; its root tab becomes the nvim tab.
 create=$(herdr workspace create --cwd "$selected" --label "$selected_name" --no-focus)
-ws=$(echo "$create"        | jq -r '.result.workspace.workspace_id')
-nvim_tab=$(echo "$create"  | jq -r '.result.tab.tab_id')
+ws=$(echo "$create" | jq -r '.result.workspace.workspace_id')
+nvim_tab=$(echo "$create" | jq -r '.result.tab.tab_id')
 nvim_pane=$(echo "$create" | jq -r '.result.root_pane.pane_id')
 
 herdr tab rename "$nvim_tab" "nvim" >/dev/null 2>&1 || true
 
 # Second tab: an auto-restarting pi TUI.
 pi_create=$(herdr tab create --workspace "$ws" --cwd "$selected" --label "pi" --no-focus)
-pi_tab=$(echo "$pi_create"   | jq -r '.result.tab.tab_id')
-pi_pane=$(echo "$pi_create"  | jq -r '.result.root_pane.pane_id')
+pi_tab=$(echo "$pi_create" | jq -r '.result.tab.tab_id')
+pi_pane=$(echo "$pi_create" | jq -r '.result.root_pane.pane_id')
 
 # Third tab: a plain shell.
 shell_create=$(herdr tab create --workspace "$ws" --cwd "$selected" --label "shell" --no-focus)
@@ -116,7 +119,7 @@ shell_tab=$(echo "$shell_create" | jq -r '.result.tab.tab_id')
 # Launch the auto-restarting nvim and pi in their respective panes.
 sleep 0.4
 herdr pane run "$nvim_pane" "while true; do nvim; done" >/dev/null 2>&1 || true
-herdr pane run "$pi_pane" "while true; do pi --tui-mode fullscreen; done" >/dev/null 2>&1 || true
+herdr pane run "$pi_pane" "while true; do pi; done" >/dev/null 2>&1 || true
 
 # Land on the shell tab (matches the tmux script's `select-window :1`).
 herdr workspace focus "$ws" >/dev/null
