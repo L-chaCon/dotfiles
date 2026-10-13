@@ -8,11 +8,13 @@
  * - websearch: search the web via a layered provider chain (Exa/Parallel with
  *   a key, anonymous Exa, or keyless DuckDuckGo scrape) with graceful cascade.
  *
- * Both actions are permission-gated per §5.3. websearch adds an interactive
- * "API key onboarding" flow (§9b) that, when no key is found, lets the user
- * paste a key, opt out to DuckDuckGo, or use the anonymous endpoint.
+ * Both actions are permission-gated per §5.3. websearch asks once per session
+ * whether to use the stored API key (env var or macOS Keychain). Only when no
+ * key exists does it offer to paste one (saved to the Keychain), opt out to
+ * DuckDuckGo, or use the anonymous endpoint.
  */
 
+import { execFile } from "node:child_process";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
@@ -189,97 +191,180 @@ function attr(tag: string, name: string): string | undefined {
 const allowedDomains = new Set<string>(); // webfetch, per hostname
 let allowAllSearches = false; // websearch permission
 
-// Search provider onboarding state (§9b.2), in-memory per session.
+// Search provider state (§9b.2), in-memory per session. Keys are loaded from
+// the environment or the Keychain once the session's provider is decided.
 let sessionExaKey: string | undefined;
 let sessionParallelKey: string | undefined;
 let searchProviderChoice: "undecided" | "vendor" | "ddg" | "anon" = "undecided";
 
-const exaKey = () => process.env.EXA_API_KEY || sessionExaKey;
-const parallelKey = () => process.env.PARALLEL_API_KEY || sessionParallelKey;
+const exaKey = () => sessionExaKey;
+const parallelKey = () => sessionParallelKey;
 
-async function gateFetch(ctx: ExtensionContext, url: string): Promise<void> {
+/**
+ * pi's TUI shows one extension dialog at a time: opening a second one replaces
+ * the first without ever resolving its promise. Parallel tool calls therefore
+ * take turns here, and the whole batch waits until the user answers.
+ */
+let dialogQueue: Promise<unknown> = Promise.resolve();
+
+function withDialogLock<T>(fn: () => Promise<T>): Promise<T> {
+	const run = dialogQueue.then(fn, fn);
+	dialogQueue = run.catch(() => {});
+	return run;
+}
+
+async function gateFetch(ctx: ExtensionContext, url: string, signal: AbortSignal | undefined): Promise<void> {
 	const domain = new URL(url).hostname;
 	if (allowedDomains.has(domain)) return;
 	if (!ctx.hasUI) throw new Error("webfetch denied (no interactive UI)");
-	const choice = await ctx.ui.select(`Allow web fetch?\n\n  ${url}`, [
-		"Allow once",
-		"Allow domain this session",
-		"Deny",
-	]);
+	const choice = await ctx.ui.select(
+		`Allow web fetch?\n\n  ${url}`,
+		["Allow once", "Allow domain this session", "Deny"],
+		{ signal },
+	);
 	if (!choice || choice === "Deny") throw new Error("webfetch denied by user");
 	if (choice === "Allow domain this session") allowedDomains.add(domain);
 }
 
-async function gateSearch(ctx: ExtensionContext, query: string): Promise<void> {
+async function gateSearch(ctx: ExtensionContext, query: string, signal: AbortSignal | undefined): Promise<void> {
 	if (allowAllSearches) return;
 	if (!ctx.hasUI) throw new Error("websearch denied (no interactive UI)");
-	const choice = await ctx.ui.select(`Allow web search?\n\n  "${query}"`, [
-		"Allow once",
-		"Allow all searches this session",
-		"Deny",
-	]);
+	const choice = await ctx.ui.select(
+		`Allow web search?\n\n  "${query}"`,
+		["Allow once", "Allow all searches this session", "Deny"],
+		{ signal },
+	);
 	if (!choice || choice === "Deny") throw new Error("websearch denied by user");
 	if (choice === "Allow all searches this session") allowAllSearches = true;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Search provider onboarding (§9b.3)
+// API key storage — macOS Keychain, so keys never live in dotfiles
 // ────────────────────────────────────────────────────────────────────────────
 
-const PASTE_EXA = "Paste an Exa API key now";
-const PASTE_PARALLEL = "Paste a Parallel API key now";
+const KEYCHAIN_SERVICE = "pi-websearch";
+const KEYCHAIN_TIMEOUT_MS = 30_000; // a locked keychain shows an unlock prompt
+
+function runSecurity(args: string[]): Promise<string | undefined> {
+	if (process.platform !== "darwin") return Promise.resolve(undefined);
+	return new Promise((resolve) => {
+		execFile("security", args, { timeout: KEYCHAIN_TIMEOUT_MS }, (err, stdout) => {
+			resolve(err ? undefined : stdout.trim());
+		});
+	});
+}
+
+async function keychainRead(account: "exa" | "parallel"): Promise<string | undefined> {
+	const key = await runSecurity(["find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", account, "-w"]);
+	return key || undefined;
+}
+
+async function keychainWrite(account: "exa" | "parallel", key: string): Promise<boolean> {
+	// -U updates an existing item instead of failing on duplicates.
+	const out = await runSecurity(["add-generic-password", "-U", "-s", KEYCHAIN_SERVICE, "-a", account, "-w", key]);
+	return out !== undefined;
+}
+
+/** Env vars win over the Keychain. */
+async function loadStoredKeys(): Promise<void> {
+	sessionExaKey = process.env.EXA_API_KEY || (await keychainRead("exa"));
+	sessionParallelKey = process.env.PARALLEL_API_KEY || (await keychainRead("parallel"));
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Search provider choice (§9b.3) — once per session
+// ────────────────────────────────────────────────────────────────────────────
+
+const PASTE_EXA = "Paste an Exa API key now (saved to Keychain)";
+const PASTE_PARALLEL = "Paste a Parallel API key now (saved to Keychain)";
 const USE_DDG = "Use DuckDuckGo — no key needed (default)";
 const USE_ANON = "Use Exa anonymously this session";
 
+async function pasteAndStoreKey(
+	ctx: ExtensionContext,
+	account: "exa" | "parallel",
+	signal: AbortSignal | undefined,
+): Promise<boolean> {
+	const envName = account === "exa" ? "EXA_API_KEY" : "PARALLEL_API_KEY";
+	const label = account === "exa" ? "Exa" : "Parallel";
+	const key = (
+		await ctx.ui.input(`Paste ${envName} (Enter to confirm, Esc to go back):`, account === "exa" ? "exa_..." : "", {
+			signal,
+		})
+	)?.trim();
+	if (!key) return false;
+
+	if (account === "exa") sessionExaKey = key;
+	else sessionParallelKey = key;
+	searchProviderChoice = "vendor";
+
+	if (await keychainWrite(account, key)) {
+		ctx.ui.notify(`${label} key saved to Keychain (service "${KEYCHAIN_SERVICE}").`, "info");
+	} else {
+		ctx.ui.notify(`Could not save ${label} key to Keychain; using it for this session only.`, "warning");
+	}
+	return true;
+}
+
 /**
- * Ensure a search provider is resolved. When no key is configured and running
- * interactively, prompt the user to paste a key, opt out to DuckDuckGo, or use
- * the anonymous endpoint. "Wait" semantics: cancelling the paste dialog loops
- * back to the menu instead of silently falling through to DuckDuckGo.
+ * Ensure a search provider is resolved, once per session. With a stored key,
+ * ask whether to use it; only without one, offer to paste a key (persisted),
+ * opt out to DuckDuckGo, or use the anonymous endpoint. Cancelling the paste
+ * dialog loops back to the menu instead of silently falling through.
  */
-async function ensureSearchProvider(ctx: ExtensionContext): Promise<void> {
-	if (envProviderOverride()) return;
+async function ensureSearchProvider(ctx: ExtensionContext, signal?: AbortSignal): Promise<void> {
 	if (searchProviderChoice !== "undecided") return;
-	if (exaKey() || parallelKey()) {
-		searchProviderChoice = "vendor";
+	await loadStoredKeys();
+	const storedLabel = exaKey() ? "Exa" : parallelKey() ? "Parallel" : undefined;
+
+	if (envProviderOverride() || !ctx.hasUI) {
+		// Non-interactive or forced provider: no questions asked.
+		searchProviderChoice = storedLabel ? "vendor" : process.env.WEBSEARCH_ALLOW_ANON === "1" ? "anon" : "ddg";
 		return;
 	}
+
+	if (storedLabel) {
+		const useKey = `Use stored ${storedLabel} key`;
+		const choice = await ctx.ui.select(
+			`Web search this session:\n(${storedLabel} key found in ${
+				process.env.EXA_API_KEY || process.env.PARALLEL_API_KEY ? "environment" : "Keychain"
+			})`,
+			[useKey, USE_DDG],
+			{ signal },
+		);
+		if (choice === useKey) {
+			searchProviderChoice = "vendor";
+			return;
+		}
+		if (choice === USE_DDG) {
+			searchProviderChoice = "ddg";
+			ctx.ui.setStatus?.("websearch", "web: duckduckgo (no key)");
+			return;
+		}
+		throw new Error("websearch cancelled (no provider selected)");
+	}
+
 	if (process.env.WEBSEARCH_ALLOW_ANON === "1") {
 		searchProviderChoice = "anon";
 		return;
 	}
-	if (!ctx.hasUI) {
-		searchProviderChoice = "ddg"; // non-interactive: silent DDG
-		return;
-	}
 
-	// Interactive: loop until a terminal choice is made.
+	// No key anywhere: loop until a terminal choice is made.
 	for (;;) {
 		const choice = await ctx.ui.select(
 			"No web search API key found.\nHow do you want pi to search the web?\n" +
 				"(Get a free key at https://exa.ai or https://parallel.ai)",
 			[PASTE_EXA, PASTE_PARALLEL, USE_DDG, USE_ANON],
+			{ signal },
 		);
 
 		if (choice === PASTE_EXA) {
-			const key = await ctx.ui.input("Paste EXA_API_KEY (Enter to confirm, Esc to go back):", "exa_...");
-			if (key && key.trim()) {
-				sessionExaKey = key.trim();
-				searchProviderChoice = "vendor";
-				ctx.ui.notify("Exa key set for this session.", "info");
-				return;
-			}
+			if (await pasteAndStoreKey(ctx, "exa", signal)) return;
 			continue; // wait: back to menu
 		}
 
 		if (choice === PASTE_PARALLEL) {
-			const key = await ctx.ui.input("Paste PARALLEL_API_KEY (Enter to confirm, Esc to go back):", "");
-			if (key && key.trim()) {
-				sessionParallelKey = key.trim();
-				searchProviderChoice = "vendor";
-				ctx.ui.notify("Parallel key set for this session.", "info");
-				return;
-			}
+			if (await pasteAndStoreKey(ctx, "parallel", signal)) return;
 			continue;
 		}
 
@@ -313,7 +398,6 @@ function resolveProvider(): "exa" | "parallel" | "ddg" {
 	if (searchProviderChoice === "anon") return "exa";
 	if (exaKey()) return "exa";
 	if (parallelKey()) return "parallel";
-	if (process.env.WEBSEARCH_ALLOW_ANON === "1") return "exa";
 	return "ddg";
 }
 
@@ -392,34 +476,19 @@ async function readCapped(res: Response, cap: number, controller?: AbortControll
 	return out;
 }
 
-async function fetchWithPolicy(
-	url: string,
-	format: string,
-	timeoutMs: number,
-	signal: AbortSignal | undefined,
-): Promise<Response> {
+/** `signal` must carry the caller's deadline: it also governs the body read. */
+async function fetchWithPolicy(url: string, format: string, signal: AbortSignal): Promise<Response> {
 	const headers: Record<string, string> = {
 		"User-Agent": BROWSER_UA,
 		"Accept-Language": "en-US,en;q=0.9",
 		Accept: ACCEPT_BY_FORMAT[format] ?? ACCEPT_BY_FORMAT.markdown,
 	};
 
-	const t1 = withTimeout(signal, timeoutMs);
-	let res: Response;
-	try {
-		res = await fetch(url, { headers, signal: t1.signal });
-	} finally {
-		t1.done();
-	}
+	let res = await fetch(url, { headers, signal });
 
 	// Cloudflare challenge retry with a different UA.
 	if (res.status === 403 && res.headers.get("cf-mitigated") === "challenge") {
-		const t2 = withTimeout(signal, timeoutMs);
-		try {
-			res = await fetch(url, { headers: { ...headers, "User-Agent": FALLBACK_UA }, signal: t2.signal });
-		} finally {
-			t2.done();
-		}
+		res = await fetch(url, { headers: { ...headers, "User-Agent": FALLBACK_UA }, signal });
 	}
 
 	return res;
@@ -541,16 +610,17 @@ async function mcpSearch(
 		params: { name, arguments: args },
 	});
 
+	// The timeout covers the body too: a server that sends headers then stalls
+	// must not hang the tool.
 	const t = withTimeout(signal, SEARCH_TIMEOUT_MS);
-	let res: Response;
+	let text: string;
 	try {
-		res = await fetch(url, { method: "POST", headers, body, signal: t.signal });
+		const res = await fetch(url, { method: "POST", headers, body, signal: t.signal });
+		if (!res.ok) throw new Error(`${provider} search failed: HTTP ${res.status}`);
+		text = new TextDecoder().decode(await readCapped(res, MAX_SEARCH_RESPONSE_BYTES));
 	} finally {
 		t.done();
 	}
-	if (!res.ok) throw new Error(`${provider} search failed: HTTP ${res.status}`);
-	const bytes = await readCapped(res, MAX_SEARCH_RESPONSE_BYTES);
-	const text = new TextDecoder().decode(bytes);
 	const parsed = parseMcpResponse(text);
 	if (!parsed) throw new Error(`${provider} search returned no parseable results`);
 	return parsed;
@@ -583,15 +653,14 @@ async function ddgSearch(
 	};
 
 	const t = withTimeout(signal, SEARCH_TIMEOUT_MS);
-	let res: Response;
+	let html: string;
 	try {
-		res = await fetch(url, { headers, signal: t.signal });
+		const res = await fetch(url, { headers, signal: t.signal });
+		if (!res.ok) throw new Error(`DuckDuckGo failed: HTTP ${res.status}`);
+		html = new TextDecoder().decode(await readCapped(res, MAX_SEARCH_RESPONSE_BYTES));
 	} finally {
 		t.done();
 	}
-	if (!res.ok) throw new Error(`DuckDuckGo failed: HTTP ${res.status}`);
-	const bytes = await readCapped(res, MAX_SEARCH_RESPONSE_BYTES);
-	const html = new TextDecoder().decode(bytes);
 
 	const results = parseDdgResults(html, limit);
 	if (results.length === 0) return undefined;
@@ -712,20 +781,28 @@ export default function web(pi: ExtensionAPI) {
 				throw new Error(`Invalid URL (must be http or https): ${params.url}`);
 			}
 
-			await gateFetch(ctx, url);
+			await withDialogLock(() => gateFetch(ctx, url, signal));
 
 			const format = params.format || "markdown";
 			const timeoutMs = Math.min((params.timeout ?? DEFAULT_TIMEOUT_SECONDS) * 1000, MAX_TIMEOUT_SECONDS * 1000);
 
-			const res = await fetchWithPolicy(url, format, timeoutMs, signal);
-			if (!res.ok) throw new Error(`Fetch failed: HTTP ${res.status} for ${url}`);
+			// One deadline spanning headers and body, so a stalled stream can't hang.
+			const overall = withTimeout(signal, timeoutMs);
+			let res: Response;
+			let bytes: Uint8Array;
+			try {
+				res = await fetchWithPolicy(url, format, overall.signal);
+				if (!res.ok) throw new Error(`Fetch failed: HTTP ${res.status} for ${url}`);
+				bytes = await readCapped(res, MAX_RESPONSE_BYTES);
+			} finally {
+				overall.done();
+			}
 
 			const contentType = res.headers.get("content-type") || "";
 			const mime = contentType.split(";")[0].trim().toLowerCase();
 
 			// Image content block (except SVG, treated as text).
 			if (mime.startsWith("image/") && mime !== "image/svg+xml") {
-				const bytes = await readCapped(res, MAX_RESPONSE_BYTES);
 				const base64 = Buffer.from(bytes).toString("base64");
 				return {
 					content: [{ type: "image" as const, data: base64, mimeType: mime }],
@@ -733,7 +810,6 @@ export default function web(pi: ExtensionAPI) {
 				};
 			}
 
-			const bytes = await readCapped(res, MAX_RESPONSE_BYTES);
 			const raw = new TextDecoder().decode(bytes);
 			const isHtml = mime === "text/html" || mime === "application/xhtml+xml" || /^\s*</.test(raw);
 
@@ -770,8 +846,10 @@ export default function web(pi: ExtensionAPI) {
 		parameters: WebsearchParams,
 
 		async execute(_toolCallId, params: WebsearchInput, signal, _onUpdate, ctx) {
-			await gateSearch(ctx, params.query);
-			await ensureSearchProvider(ctx);
+			await withDialogLock(async () => {
+				await gateSearch(ctx, params.query, signal);
+				await ensureSearchProvider(ctx, signal);
+			});
 
 			const details: Record<string, unknown> = { query: params.query };
 			const { text, provider } = await searchWithCascade(params, signal, details);
@@ -786,15 +864,17 @@ export default function web(pi: ExtensionAPI) {
 
 	// §9b.4 — let the user change the search backend mid-session.
 	pi.registerCommand("websearch-provider", {
-		description: "Choose the web search provider (paste key / DuckDuckGo / anonymous)",
+		description: "Choose the web search provider for this session (stored key / DuckDuckGo / paste key)",
 		handler: async (_args, ctx) => {
 			if (!ctx.hasUI) {
 				ctx.ui.notify("websearch-provider requires an interactive UI.", "warning");
 				return;
 			}
-			searchProviderChoice = "undecided";
-			ctx.ui.setStatus?.("websearch", undefined);
-			await ensureSearchProvider(ctx);
+			await withDialogLock(async () => {
+				searchProviderChoice = "undecided";
+				ctx.ui.setStatus?.("websearch", undefined);
+				await ensureSearchProvider(ctx);
+			});
 			ctx.ui.notify(`Web search provider: ${resolveProvider()}`, "info");
 		},
 	});
