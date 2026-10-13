@@ -89,11 +89,15 @@ __ensure_zshrc() {
 
   tmp="$(mktemp)"
 
+  # Copy everything except our block. Blank lines are held back until a
+  # non-blank line follows, so trailing blanks don't pile up on every run.
   if [[ -f "$zshrc" ]]; then
     awk -v start="$ZSHRC_MANAGED_START" -v end="$ZSHRC_MANAGED_END" '
-      $0 == start { skip = 1; next }
-      $0 == end   { skip = 0; next }
-      !skip       { print }
+      $0 == start      { skip = 1; next }
+      $0 == end        { skip = 0; next }
+      skip             { next }
+      /^[[:space:]]*$/ { blanks = blanks $0 "\n"; next }
+                       { printf "%s", blanks; blanks = ""; print }
     ' "$zshrc" > "$tmp"
   fi
 

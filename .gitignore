@@ -1,6 +1,10 @@
 # Stow-generated backup files
 *.bak.*
 
+# Work-only shell module — contains internal account IDs/URLs, never commit.
+# Lives only on work machines; this repo is public.
+home/.config/zsh/work/tails.zsh
+
 # Herdr runtime/state files
 home/.config/herdr/*.log
 home/.config/herdr/session.json
