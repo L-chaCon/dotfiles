@@ -19,16 +19,17 @@
  *                        Default: http://localhost:1234
  */
 
-import type {
-	ExtensionAPI,
-	ExtensionCommandContext,
+import {
+	type ExtensionAPI,
+	type ExtensionCommandContext,
+	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { createServer, type Server } from "node:http";
 import { spawn } from "node:child_process";
 import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import { watch, type FSWatcher } from "node:fs";
-import { dirname, isAbsolute, join, basename } from "node:path";
+import { dirname, isAbsolute, join, basename, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -70,6 +71,68 @@ function resolveDiagramPath(name: string, cwd: string): string {
 		trimmed += ".drawio";
 	}
 	return isAbsolute(trimmed) ? trimmed : join(cwd, trimmed);
+}
+
+/**
+ * Path to show the user and to pass back to /diagram-open: relative to cwd when
+ * the file is inside it (e.g. "docs/diagrams/x.drawio"), absolute otherwise.
+ * Using basename() here was a bug: /diagram-open resolves names against cwd, so
+ * a file saved in a subfolder would not be found (and a blank one offered).
+ */
+function displayPath(path: string, cwd: string): string {
+	const rel = relative(cwd, path);
+	return rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : path;
+}
+
+/**
+ * Cheap structural checks for agent-written drawio XML. Not a full XML parser:
+ * it catches the mistakes models actually make (truncated output, duplicate ids,
+ * edges pointing at missing cells, unescaped "&") before anything is written.
+ * Returns a list of problems; empty means "looks valid".
+ */
+function validateDiagramXml(xml: string): string[] {
+	const problems: string[] = [];
+	const body = xml.trim().replace(/^<\?xml[^>]*\?>\s*/, "");
+	if (!body.startsWith("<mxfile")) problems.push("document must start with <mxfile>");
+	if (!body.endsWith("</mxfile>")) problems.push("document must end with </mxfile> (output truncated?)");
+
+	const opens = (body.match(/<diagram[\s>]/g) ?? []).length;
+	const closes = (body.match(/<\/diagram>/g) ?? []).length;
+	if (opens === 0) problems.push("no <diagram> element");
+	if (opens !== closes) problems.push(`${opens} <diagram> opened but ${closes} closed`);
+
+	const badAmp = body.match(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g);
+	if (badAmp) problems.push(`${badAmp.length} unescaped "&" (use &amp;)`);
+
+	const diagrams = body.match(/<diagram[\s>][\s\S]*?<\/diagram>/g) ?? [];
+	diagrams.forEach((d, i) => {
+		const name = d.match(/<diagram[^>]*\bname="([^"]*)"/)?.[1] ?? `#${i + 1}`;
+		if (!d.includes("<mxGraphModel")) return; // compressed diagram: can't inspect cells, accept
+		const cells = [...d.matchAll(/<mxCell\b((?:[^>"]|"[^"]*")*)>/g)].map((m) => attrs(m[1]));
+		const ids = new Set<string>();
+		for (const c of cells) {
+			if (c.id === undefined) { problems.push(`page "${name}": an mxCell has no id`); continue; }
+			if (ids.has(c.id)) problems.push(`page "${name}": duplicate mxCell id "${c.id}"`);
+			ids.add(c.id);
+		}
+		if (!ids.has("0") || !ids.has("1")) {
+			problems.push(`page "${name}": missing root cells <mxCell id="0"/> and <mxCell id="1" parent="0"/>`);
+		}
+		for (const c of cells) {
+			for (const key of ["source", "target", "parent"]) {
+				const ref = c[key];
+				if (ref !== undefined && !ids.has(ref)) problems.push(`page "${name}": ${key}="${ref}" refers to no mxCell`);
+			}
+		}
+	});
+	return problems;
+}
+
+/** Parse the attribute list of one tag (quote-aware, so ">" inside a label is fine). */
+function attrs(src: string): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const m of src.matchAll(/(?:^|\s)([\w:.-]+)\s*=\s*"([^"]*)"/g)) out[m[1]] = m[2];
+	return out;
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -197,7 +260,15 @@ export default function drawioExtension(pi: ExtensionAPI) {
 		description:
 			"Save a drawio (.drawio) diagram to disk. `xml` must be a complete " +
 			"drawio/mxGraph document (an <mxfile> containing a <diagram> with an " +
-			"<mxGraphModel>). Use this to persist diagrams created from planning.",
+			"<mxGraphModel>). Use this to persist diagrams created from planning. " +
+			"Rules: write uncompressed XML; each page needs root cells " +
+			'<mxCell id="0"/><mxCell id="1" parent="0"/> and its shapes/edges use parent="1"; ' +
+			"every mxCell id is unique per page; edge source/target must be existing vertex ids; " +
+			"escape &, <, > and quotes in labels (with html=1, line breaks are &lt;br&gt;); " +
+			"lay shapes out on a grid with at least 40px between them so nothing overlaps; " +
+			"use one <diagram> per page for multi-page documents. The XML is checked " +
+			"before writing and rejected with a list of problems if malformed. " +
+			"An existing file at the same path is overwritten.",
 		parameters: Type.Object({
 			xml: Type.String({
 				description:
@@ -207,23 +278,39 @@ export default function drawioExtension(pi: ExtensionAPI) {
 			name: Type.Optional(
 				Type.String({
 					description:
-						"File name (with or without .drawio). Saved in the current " +
-						"working directory unless an absolute path is given.",
+						"File name (with or without .drawio), relative to the current " +
+						"working directory (subfolders allowed, e.g. docs/diagrams/flow) " +
+						"or absolute.",
 				}),
 			),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const path = resolveDiagramPath(params.name ?? "diagram", ctx.cwd);
-			await mkdir(dirname(path), { recursive: true });
-			await writeFile(path, params.xml, "utf-8");
+
+			const problems = validateDiagramXml(params.xml);
+			if (problems.length > 0) {
+				const shown = problems.slice(0, 10).map((p) => `- ${p}`).join("\n");
+				const more = problems.length > 10 ? `\n- …and ${problems.length - 10} more` : "";
+				throw new Error(`Diagram XML rejected, nothing was written to ${path}:\n${shown}${more}`);
+			}
+
+			const existed = await withFileMutationQueue(path, async () => {
+				const before = await fileExists(path);
+				await mkdir(dirname(path), { recursive: true });
+				await writeFile(path, params.xml, "utf-8");
+				return before;
+			});
+
+			const shown = displayPath(path, ctx.cwd);
+			const verb = existed ? "Overwrote existing diagram" : "Saved diagram";
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Saved diagram to ${path}\nOpen it for manual editing with: /diagram-open ${basename(path)}`,
+						text: `${verb} at ${path}\nOpen it for manual editing with: /diagram-open ${shown}`,
 					},
 				],
-				details: { path },
+				details: { path, overwritten: existed },
 			};
 		},
 	});
@@ -238,7 +325,7 @@ export default function drawioExtension(pi: ExtensionAPI) {
 				`Create a diagram in drawio format that represents our current ` +
 				`planning discussion (architecture, flow, or structure as appropriate). ` +
 				`Produce a complete, valid mxGraph XML document and save it by calling ` +
-				`the save_diagram tool with name "${basename(path)}". ` +
+				`the save_diagram tool with name "${displayPath(path, ctx.cwd)}". ` +
 				`Lay out nodes so they do not overlap, label edges where useful, and ` +
 				`keep the diagram readable.`;
 			pi.sendMessage(
