@@ -1,0 +1,6 @@
+k9s:
+  liveViewAutoRefresh: false
+  refreshRate: 2
+  ui:
+    headless: false
+    skin: nord
