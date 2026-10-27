@@ -27,5 +27,7 @@ agent/extensions/**/node_modules/
 !agent/themes/*.json
 !agent/extensions/
 !agent/extensions/**
+!agent/skills/
+!agent/skills/**
 !agent/mcp.json
 !agent/APPEND_SYSTEM.md
