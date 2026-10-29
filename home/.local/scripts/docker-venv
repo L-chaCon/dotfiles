@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# docker-venv — build a local .venv that mirrors the packages installed in a
+# project's docker image, so the LSP (pyright/ruff) sees the same dependencies.
+#
+# Usage: docker-venv [service]     (run from the project root, default: base-image)
+#   --pypi    install from public PyPI instead of CodeArtifact
+#
+# The docker venv itself can't be copied (Linux/musl binaries), so this reads
+# the exact `name==version` list and Python version from the image and
+# reinstalls them for macOS with uv.
+
+set -euo pipefail
+
+readonly CODEARTIFACT_INDEX="${DOCKER_VENV_INDEX:-tails-426105708615.d.codeartifact.eu-west-1.amazonaws.com/pypi/tails/simple/}"
+readonly TOKEN_FILE=".codeartifact-token"
+readonly VENV=".venv"
+
+service="base-image"
+use_pypi=false
+for arg in "$@"; do
+  case "$arg" in
+    --pypi) use_pypi=true ;;
+    -h | --help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) service="$arg" ;;
+  esac
+done
+
+__info() { echo -e "\033[0;36m==>\033[0m $1"; }
+__err() { echo -e "\033[0;31m✗\033[0m $1" >&2; }
+
+for cmd in docker uv; do
+  command -v "$cmd" >/dev/null || { __err "$cmd not found"; exit 1; }
+done
+if ! docker compose config --services 2>/dev/null | grep -qx "$service"; then
+  __err "no compose service '$service' here. Available:"
+  docker compose config --services >&2 2>/dev/null || true
+  exit 1
+fi
+
+# Prints the python version, then one `name==version` per installed package.
+# Skips pip and the project itself (editable or installed from a local path).
+read -r -d '' FREEZE_PY <<'EOF' || true
+import json, sys, importlib.metadata as md
+print("%d.%d.%d" % sys.version_info[:3])
+seen = {"pip"}
+for d in md.distributions():
+    name = (d.metadata["Name"] or "").lower()
+    if not name or name in seen:
+        continue
+    seen.add(name)
+    url = json.loads(d.read_text("direct_url.json") or "{}")
+    if url.get("dir_info", {}).get("editable") or url.get("url", "").startswith("file://"):
+        continue
+    print(f"{name}=={d.version}")
+EOF
+
+__info "Reading packages from docker compose service '$service'"
+frozen="$(docker compose run --rm --no-deps -T --entrypoint python "$service" -c "$FREEZE_PY")"
+python_version="$(head -1 <<<"$frozen")"
+requirements="$(tail -n +2 <<<"$frozen" | sort)"
+echo "    python $python_version, $(wc -l <<<"$requirements" | tr -d ' ') packages"
+
+if $use_pypi; then
+  index_url="https://pypi.org/simple/"
+else
+  # Same token cache as the Makefiles: reuse it while it's younger than 10h
+  if [[ ! -s "$TOKEN_FILE" || -n "$(find "$TOKEN_FILE" -mmin +600)" ]]; then
+    __info "Fetching CodeArtifact token"
+    aws codeartifact get-authorization-token --profile production \
+      --domain tails --domain-owner 426105708615 \
+      --query authorizationToken --output text >"$TOKEN_FILE"
+  fi
+  index_url="https://aws:$(cat "$TOKEN_FILE")@$CODEARTIFACT_INDEX"
+fi
+
+__info "Creating $VENV with python $python_version"
+uv venv --clear --python "$python_version" "$VENV"
+echo "$requirements" >"$VENV/docker-requirements.txt"
+
+__info "Installing packages"
+install() { uv pip install --python "$VENV/bin/python" --index-url "$index_url" "$@"; }
+if ! install -r "$VENV/docker-requirements.txt"; then
+  # Usually one package fails to build on macOS (e.g. psycopg2 needs
+  # `brew install libpq`). Install the rest one by one so the LSP still works.
+  __err "bulk install failed, installing one by one"
+  failed=()
+  while read -r req; do
+    install --no-deps --quiet "$req" 2>/dev/null || failed+=("$req")
+  done <"$VENV/docker-requirements.txt"
+  if ((${#failed[@]})); then
+    __err "could not install: ${failed[*]}"
+  fi
+fi
+
+__info "Done: $VENV (select it in nvim with <leader>pv)"

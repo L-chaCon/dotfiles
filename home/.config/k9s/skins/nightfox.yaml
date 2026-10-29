@@ -1,20 +1,20 @@
 # -----------------------------------------------------------------------------
-# Nord skin
+# Nightfox skin (palette from EdenEast/nightfox.nvim)
 # -----------------------------------------------------------------------------
 
 # Styles...
-foreground: &foreground "#DADEE8"
-background: &background "#30343F"
-current_line: &current_line "#383D4A"
-selection: &selection "#D9DEE8"
-comment: &comment "#8891A7"
-cyan: &cyan "#88C0D0"
-green: &green "#A3BE8C"
-orange: &orange "#D08770"
-blue: &blue "#81A1C1"
-magenta: &magenta "#B48EAD"
-red: &red "#BF616A"
-yellow: &yellow "#EBCB8B"
+foreground: &foreground "#cdcecf"
+background: &background "#192330"
+current_line: &current_line "#29394f"
+selection: &selection "#aeafb0"
+comment: &comment "#738091"
+cyan: &cyan "#63cdcf"
+green: &green "#81b29a"
+orange: &orange "#f4a261"
+blue: &blue "#719cd6"
+magenta: &magenta "#9d79d6"
+red: &red "#c94f6d"
+yellow: &yellow "#dbc074"
 
 # Skin...
 k9s:

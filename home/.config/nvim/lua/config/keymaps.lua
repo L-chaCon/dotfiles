@@ -35,7 +35,20 @@ vim.keymap.set("n", "<up>", '<cmd>echo "Use k to move!!"<CR>')
 vim.keymap.set("n", "<down>", '<cmd>echo "Use j to move!!"<CR>')
 
 -- QFix list
+vim.keymap.set("n", "<leader>xq", function()
+  if vim.fn.getqflist({ winid = 0 }).winid ~= 0 then
+    vim.cmd.cclose()
+  else
+    -- Full width at the bottom, 40% of the screen tall (default is 10 lines)
+    vim.cmd(("botright copen %d"):format(math.max(10, math.floor(vim.o.lines * 0.4))))
+  end
+end, { desc = "Toggle Quickfix List" })
 vim.keymap.set("n", "<leader>xr", "<cmd>QFRemoveCurrent<cr>", { desc = "Remove current from QuixFix List" })
+-- New list with only the entries ]q stops on; :colder gets the full one back
+vim.keymap.set("n", "<leader>xv", function()
+  local items = vim.tbl_filter(function(i) return i.valid == 1 end, vim.fn.getqflist())
+  vim.fn.setqflist({}, " ", { title = "locations only", items = items })
+end, { desc = "Quickfix: locations only" })
 
 -- Format with jq
 vim.keymap.set("n", "<leader>aj", "<cmd>%!jq --indent 4 .<cr>", { desc = "Autoformat JSON 4 indent" })

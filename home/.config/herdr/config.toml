@@ -1,8 +1,29 @@
 onboarding = false
 
 [theme]
-name = "nord"
+name = "terminal"
 auto_switch = false
+
+# No built-in nightfox: pin its palette (nightfox.nvim) so the UI doesn't
+# depend on the terminal colors herdr read when the client attached
+[theme.custom]
+accent = "#719cd6"
+active_row_bg = "#29394f"
+selection_bg = "#2b3b51"
+surface_dim = "#131a24"
+surface0 = "#212e3f"
+surface1 = "#29394f"
+overlay0 = "#39506d"
+overlay1 = "#71839b"
+text = "#cdcecf"
+subtext0 = "#aeafb0"
+mauve = "#9d79d6"
+green = "#81b29a"
+yellow = "#dbc074"
+red = "#c94f6d"
+blue = "#719cd6"
+teal = "#63cdcf"
+peach = "#f4a261"
 
 # Ctrl-Space launches the sessionizer in a popup (fzf folder picker).
 [[keys.command]]

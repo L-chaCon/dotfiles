@@ -1,10 +1,13 @@
 return {
+  -- LazyVim loads the colorscheme itself; this replaces its tokyonight default
+  { "LazyVim/LazyVim", opts = { colorscheme = "nightfox" } },
+  { "folke/tokyonight.nvim", enabled = false },
+  { "catppuccin/nvim", name = "catppuccin", enabled = false },
   {
     "EdenEast/nightfox.nvim",
-    lazy = false,
-    priority = 1000,
-    config = function()
-      local options = {
+    lazy = true,
+    opts = {
+      options = {
         styles = {
           comments = "italic",
           keywords = "bold",
@@ -12,25 +15,16 @@ return {
         inverse = {
           search = true,
         },
-      }
-      local palettes = {}
-      local specs = {}
-      local groups = {
+      },
+      groups = {
         all = {
-          SnacksDashboardHeader = { fg = "palette.yellow.base" },
-          SnacksDashboardIcon = { fg = "palette.green.base" },
-          SnacksDashboardDesc = { fg = "palette.green.base" },
-          SnacksDashboardKey = { fg = "palette.green.base" },
+          SnacksDashboardHeader = { fg = "palette.cyan.base" },
+          SnacksDashboardIcon = { fg = "palette.orange.base" },
+          SnacksDashboardDesc = { fg = "palette.orange.base" },
+          SnacksDashboardKey = { fg = "palette.orange.base" },
         },
-      }
-      require("nightfox").setup({
-        options = options,
-        palettes = palettes,
-        specs = specs,
-        groups = groups,
-      })
-      vim.cmd.colorscheme("nordfox")
-    end,
+      },
+    },
   },
   {
     "snacks.nvim",
