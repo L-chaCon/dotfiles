@@ -118,7 +118,7 @@ shell_tab=$(echo "$shell_create" | jq -r '.result.tab.tab_id')
 
 # Launch the auto-restarting nvim and pi in their respective panes.
 sleep 0.4
-herdr pane run "$nvim_pane" "while true; do nvn; done" >/dev/null 2>&1 || true
+herdr pane run "$nvim_pane" "while true; do nvim; done" >/dev/null 2>&1 || true
 herdr pane run "$pi_pane" "while true; do pi; done" >/dev/null 2>&1 || true
 
 # Land on the shell tab (matches the tmux script's `select-window :1`).
