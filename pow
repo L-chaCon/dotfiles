@@ -26,8 +26,9 @@ __resolve_script_dir() {
 readonly DOTFILES_DIR="$(__resolve_script_dir)"
 readonly PACKAGES_DIR="$DOTFILES_DIR/packages"
 readonly GIT_PROFILES=(chacon work)
-# Binaries the nvim config expects on PATH (installed via packages/Brewfile).
-# rust-analyzer comes from rustup, clangd from the Xcode CLT / clang.
+# Binaries the nvim config expects on PATH (installed via packages/Brewfile on
+# macOS, packages/pacman on Linux). On macOS rust-analyzer comes from rustup and
+# clangd from the Xcode CLT.
 readonly NVIM_TOOLS=(tree-sitter rg fd jq go gopls gofumpt goimports dlv pyright ruff
   lua-language-server stylua shfmt vscode-json-language-server rust-analyzer clangd)
 readonly ZSH_CORE_PATH='$HOME/.config/zsh/core.zsh'
@@ -213,6 +214,61 @@ __install_pacman() {
   return 1
 }
 
+# Omarchy themes are linked as whole directories, not stowed: omarchy-theme-set
+# copies theme files with `cp -r`, which would copy stow's relative per-file
+# symlinks verbatim and leave them dangling.
+__link_omarchy_themes() {
+  local src dest name ts
+  ts="$(date +%s)"
+  mkdir -p "$HOME/.config/omarchy/themes"
+
+  for src in "$DOTFILES_DIR"/omarchy/themes/*/; do
+    [[ -d "$src" ]] || continue
+    name="$(basename "$src")"
+    dest="$HOME/.config/omarchy/themes/$name"
+
+    if [[ -e "$dest" && ! -L "$dest" ]]; then
+      mv "$dest" "${dest}.bak.${ts}"
+      __info "Backed up omarchy theme $name → ${name}.bak.${ts}"
+    fi
+    ln -sfn "${src%/}" "$dest"
+  done
+}
+
+# Omarchy tools can silently break stowed configs:
+#   - `omarchy refresh <x>` does `cp -f default target`, writing the stock file
+#     THROUGH our symlink into this repo ("reset").
+#   - the monitor scaling menu edits monitors.lua with `sed -i`, which replaces
+#     our symlink with a regular file ("unlinked").
+# Prints one "<kind>\t<path>" line per problem; paths are repo-relative for
+# "reset" and $HOME-relative for "unlinked".
+__linux_drift() {
+  __is_linux || return 0
+  local pkg_dir="$DOTFILES_DIR/home-linux" file rel stock src name
+  local omarchy_path="${OMARCHY_PATH:-/usr/share/omarchy}"
+
+  while IFS= read -r -d '' file; do
+    rel="${file#"$pkg_dir"/}"
+    if [[ -e "$HOME/$rel" ]] && ! __is_managed_link "$HOME/$rel"; then
+      printf 'unlinked\t%s\n' "$rel"
+    fi
+
+    stock="$omarchy_path/config/${rel#.config/}"
+    if [[ "$rel" == .config/* && -f "$stock" ]] && cmp -s "$file" "$stock" &&
+      ! git -C "$DOTFILES_DIR" show "HEAD:home-linux/$rel" 2>/dev/null | cmp -s - "$stock"; then
+      git -C "$DOTFILES_DIR" cat-file -e "HEAD:home-linux/$rel" 2>/dev/null &&
+        printf 'reset\t%s\n' "home-linux/$rel"
+    fi
+  done < <(find "$pkg_dir" -type f -not -name '*.bak.*' -print0)
+
+  for src in "$DOTFILES_DIR"/omarchy/themes/*/; do
+    [[ -d "$src" ]] || continue
+    name="$(basename "$src")"
+    [[ -L "$HOME/.config/omarchy/themes/$name" ]] ||
+      printf 'unlinked\t%s\n' ".config/omarchy/themes/$name"
+  done
+}
+
 __stow_dotfiles() {
   if ! __cmd stow; then
     __err "stow not found"
@@ -229,6 +285,7 @@ __stow_dotfiles() {
 
   if __is_linux; then
     __restow_pkg home-linux || return 1
+    __link_omarchy_themes || return 1
   fi
 
   __ensure_zshrc || return 1
@@ -573,6 +630,16 @@ cmd_doctor() {
     fi
   done
 
+  local drift kind rel
+  drift="$(__linux_drift)"
+  if [[ -n "$drift" ]]; then
+    while IFS=$'\t' read -r kind rel; do
+      doctor_warn "$kind by omarchy: $rel  (run: pow repair)"
+    done <<<"$drift"
+  elif __is_linux; then
+    __ok "omarchy has not reset or unlinked any configs"
+  fi
+
   if __cmd pow; then
     __ok "pow is on PATH"
   else
@@ -592,6 +659,50 @@ cmd_doctor() {
 cmd_stow() {
   __header "Stowing dotfiles"
   __stow_dotfiles
+}
+
+# Used by the Omarchy post-boot / post-update hooks with --notify.
+cmd_check() {
+  local drift kind rel
+  drift="$(__linux_drift)"
+  if [[ -z "$drift" ]]; then
+    __ok "No omarchy drift"
+    return 0
+  fi
+
+  while IFS=$'\t' read -r kind rel; do
+    __warn "$kind by omarchy: $rel"
+  done <<<"$drift"
+  __info "Fix: pow repair"
+
+  if [[ "${1:-}" == "--notify" ]] && __cmd notify-send; then
+    notify-send -u critical "Dotfiles drift" \
+      "Omarchy reset or unlinked $(wc -l <<<"$drift") config file(s). Run: pow repair"
+  fi
+  return 1
+}
+
+cmd_repair() {
+  __header "Repairing omarchy drift"
+  local drift kind rel
+  drift="$(__linux_drift)"
+  if [[ -z "$drift" ]]; then
+    __ok "Nothing to repair"
+    return 0
+  fi
+
+  # Resets: the repo file now equals Omarchy's stock default, so restore the
+  # committed version. Unlinked files are backed up and relinked by stow.
+  while IFS=$'\t' read -r kind rel; do
+    if [[ "$kind" == reset ]]; then
+      git -C "$DOTFILES_DIR" checkout -- "$rel"
+      __ok "Restored $rel from git"
+    fi
+  done <<<"$drift"
+
+  __stow_dotfiles || return 1
+  __cmd hyprctl && hyprctl reload >/dev/null && __ok "Hyprland reloaded"
+  return 0
 }
 
 cmd_link() {
@@ -649,6 +760,8 @@ case "$cmd" in
   update) cmd_update "$@" ;;
   doctor) cmd_doctor "$@" ;;
   stow) cmd_stow "$@" ;;
+  check) cmd_check "$@" ;;
+  repair) cmd_repair "$@" ;;
   link) cmd_link "$@" ;;
   unlink) cmd_unlink "$@" ;;
   edit) cmd_edit "$@" ;;
@@ -664,6 +777,8 @@ ${BOLD}COMMANDS${RESET}
   update                               Pull latest + update packages + restow
   doctor                               Health check
   stow                                 (Re)stow dotfiles
+  check   [--notify]                   Detect configs omarchy reset or unlinked
+  repair                               Restore reset configs from git + restow
   link                                 Install pow to ~/.local/bin
   unlink                               Remove pow from ~/.local/bin
   edit                                 Open dotfiles in \$EDITOR
