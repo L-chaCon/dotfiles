@@ -3,4 +3,4 @@ k9s:
   refreshRate: 2
   ui:
     headless: false
-    skin: nord
+    skin: nightfox

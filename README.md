@@ -15,7 +15,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 | Version control | Git + delta |
 | AI agent | pi |
 | Dotfile manager | GNU Stow |
-| Theme | Nord |
+| Theme | Nightfox |
 
 ## Bootstrap — macOS
 

@@ -1,34 +1,35 @@
-user: 230
-group: 187
+# ANSI names only, so lsd follows the terminal palette (Nightfox in Ghostty)
+user: yellow
+group: dark_yellow
 permission:
-  read: Yellow 
+  read: yellow
   write: dark_yellow
   exec: dark_red
-  exec-sticky: 5
-  no-access: 245
-  octal: 6
+  exec-sticky: dark_magenta
+  no-access: dark_grey
+  octal: dark_cyan
   acl: dark_cyan
   context: cyan
 date:
-  hour-old: 40
-  day-old: 42
-  older: 36
+  hour-old: green
+  day-old: dark_green
+  older: dark_cyan
 size:
-  none: 245
-  small: 229
-  medium: 216
-  large: 172
+  none: dark_grey
+  small: green
+  medium: yellow
+  large: red
 inode:
-  valid: 13
-  invalid: 245
+  valid: magenta
+  invalid: dark_grey
 links:
-  valid: 13
-  invalid: 245
-tree-edge: 245
+  valid: magenta
+  invalid: dark_grey
+tree-edge: dark_grey
 git-status:
-  default: 245
-  unmodified: 245
-  ignored: 245
+  default: dark_grey
+  unmodified: dark_grey
+  ignored: dark_grey
   new-in-index: dark_green
   new-in-workdir: dark_green
   typechange: dark_yellow

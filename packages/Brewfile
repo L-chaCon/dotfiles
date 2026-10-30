@@ -23,6 +23,20 @@ brew "neovim"
 brew "gh"
 brew "sshs"
 
+# Neovim: LSP servers, formatters, parsers (checked by `pow doctor`)
+brew "tree-sitter-cli"
+brew "go"
+brew "gopls"
+brew "gofumpt"
+brew "goimports"
+brew "delve"
+brew "pyright"
+brew "ruff"
+brew "lua-language-server"
+brew "stylua"
+brew "shfmt"
+brew "vscode-langservers-extracted"
+
 # Apps
 cask "nikitabobko/tap/aerospace"
 cask "font-jetbrains-mono-nerd-font"

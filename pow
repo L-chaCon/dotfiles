@@ -26,6 +26,10 @@ __resolve_script_dir() {
 readonly DOTFILES_DIR="$(__resolve_script_dir)"
 readonly PACKAGES_DIR="$DOTFILES_DIR/packages"
 readonly GIT_PROFILES=(chacon work)
+# Binaries the nvim config expects on PATH (installed via packages/Brewfile).
+# rust-analyzer comes from rustup, clangd from the Xcode CLT / clang.
+readonly NVIM_TOOLS=(tree-sitter rg fd jq go gopls gofumpt goimports dlv pyright ruff
+  lua-language-server stylua shfmt vscode-json-language-server rust-analyzer clangd)
 readonly ZSH_CORE_PATH='$HOME/.config/zsh/core.zsh'
 readonly ZSHRC_MANAGED_START='### MANAGED BY DOTFILES START (DO NOT EDIT)'
 readonly ZSHRC_MANAGED_END='### MANAGED BY DOTFILES END (DO NOT EDIT)'
@@ -482,6 +486,20 @@ cmd_doctor() {
       doctor_warn "$tool not found"
     fi
   done
+
+  local missing_nvim=()
+  for tool in "${NVIM_TOOLS[@]}"; do
+    __cmd "$tool" || missing_nvim+=("$tool")
+  done
+  # rustup ships a rust-analyzer proxy that fails until the component is added
+  if __cmd rust-analyzer && ! rust-analyzer --version >/dev/null 2>&1; then
+    doctor_warn "rust-analyzer not installed  (run: rustup component add rust-analyzer)"
+  fi
+  if ((${#missing_nvim[@]})); then
+    doctor_warn "nvim tools missing: ${missing_nvim[*]}  (run: pow init)"
+  else
+    __ok "nvim tools (${#NVIM_TOOLS[@]})"
+  fi
 
   if __cmd pi && [[ -f "$PACKAGES_DIR/pi" ]]; then
     local installed source

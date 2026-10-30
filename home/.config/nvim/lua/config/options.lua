@@ -52,5 +52,6 @@ vim.o.updatetime = 50
 -- Mouse Options
 vim.o.mousemoveevent = true
 
+
 -- Python host
 vim.g.python3_host_prog = vim.fn.expand("~") .. "/.config/nvim/.venv/bin/python"
