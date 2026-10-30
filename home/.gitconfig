@@ -22,6 +22,7 @@
 [delta]
     navigate = true
     dark = true
+    syntax-theme = nightfox
     line-numbers = true
 
 [merge]
