@@ -9,7 +9,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 | Shell | Zsh + Starship |
 | Terminal | Ghostty |
 | Multiplexer | Herdr |
-| Editor | Neovim (LazyVim) |
+| Editor | Neovim (built-ins + vim.pack) |
 | Window manager | AeroSpace (macOS) · Hyprland (Omarchy) |
 | File tools | fzf, fd, bat, lsd, ripgrep, zoxide |
 | Version control | Git + delta |
