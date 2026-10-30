@@ -3,3 +3,18 @@
 lsd
 git-delta
 stow
+
+# Tools the nvim config expects on PATH (see NVIM_TOOLS in pow).
+# tree-sitter, rg, fd, jq and clangd already ship with Omarchy.
+go
+gopls
+go-tools
+gofumpt
+delve
+pyright
+ruff
+lua-language-server
+stylua
+shfmt
+vscode-json-languageserver
+rust-analyzer

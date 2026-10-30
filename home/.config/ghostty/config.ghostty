@@ -5,3 +5,6 @@ cursor-style = bar
 cursor-style-blink = true
 shell-integration = zsh
 keybind = alt+backspace=text:\x1b\x7f
+# Omarchy's universal Super+C/V is sent to apps as Ctrl+Insert / Shift+Insert.
+keybind = control+insert=copy_to_clipboard
+keybind = shift+insert=paste_from_clipboard

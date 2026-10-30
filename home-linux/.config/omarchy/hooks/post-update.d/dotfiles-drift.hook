@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# Notify if Omarchy reset (`omarchy refresh`) or unlinked (scaling menu) any
+# stowed config. Fix with: pow repair
+"$HOME/.local/bin/pow" check --notify >/dev/null 2>&1 || true
