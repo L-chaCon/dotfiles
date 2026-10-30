@@ -32,6 +32,7 @@ vim.pack.add({
   gh("nvim-lualine/lualine.nvim"),
   gh("Bekaboo/dropbar.nvim"),
   gh("folke/todo-comments.nvim"),
+  gh("stevearc/oil.nvim"),
 }, { confirm = false })
 
 -- Colorscheme -----------------------------------------------------------------
@@ -63,7 +64,7 @@ MiniIcons.mock_nvim_web_devicons()
 -- Snacks: picker, explorer, dashboard, notifications --------------------------
 local ivy = { layout = { preset = "ivy" } }
 require("snacks").setup({
-  explorer = { enabled = true }, -- replaces netrw
+  explorer = { enabled = true, replace_netrw = false }, -- oil opens directories
   indent = { enabled = true },
   notifier = { enabled = true },
   picker = {
@@ -187,10 +188,35 @@ require("blink.cmp").setup({
 
 -- Treesitter: parsers only, highlighting is Neovim's (autocmds.lua) -----------
 local parsers = {
-  "bash", "c", "cpp", "diff", "dockerfile", "go", "gomod", "gosum", "gowork",
-  "html", "javascript", "json", "json5", "lua", "luadoc", "make", "markdown",
-  "markdown_inline", "python", "query", "regex", "rust", "toml", "tsx",
-  "typescript", "vim", "vimdoc", "xml", "yaml",
+  "bash",
+  "c",
+  "cpp",
+  "diff",
+  "dockerfile",
+  "go",
+  "gomod",
+  "gosum",
+  "gowork",
+  "html",
+  "javascript",
+  "json",
+  "json5",
+  "lua",
+  "luadoc",
+  "make",
+  "markdown",
+  "markdown_inline",
+  "python",
+  "query",
+  "regex",
+  "rust",
+  "toml",
+  "tsx",
+  "typescript",
+  "vim",
+  "vimdoc",
+  "xml",
+  "yaml",
 }
 local installed = require("nvim-treesitter").get_installed()
 local missing = vim.tbl_filter(function(p)
@@ -293,3 +319,70 @@ require("lualine").setup({
 require("dropbar").setup({})
 
 require("todo-comments").setup({})
+
+-- Oil: directories as editable buffers, Emacs dired style --------------------
+-- `nvim .`, `:e dir/` and `-` open oil. Edit lines and :w to rename, create,
+-- delete (to the trash) or chmod (edit the permissions text, see ge).
+
+-- Paths of the oil entries on lines first..last, relative to the cwd so :!
+-- (which runs in the cwd) finds them, quoted only when the shell needs it
+local function oil_paths(first, last)
+  local oil = require("oil")
+  local dir = oil.get_current_dir()
+  local paths = {}
+  for lnum = first, last do
+    local entry = dir and oil.get_entry_on_line(0, lnum)
+    if entry and entry.name ~= ".." then
+      local path = vim.fn.fnamemodify(dir .. entry.name, ":~:.")
+      if not path:match("^[%w%._/~+,:@=-]+$") then
+        path = vim.fn.shellescape(path, true)
+      end
+      table.insert(paths, path)
+    end
+  end
+  return paths
+end
+
+-- Dired's `!`: `:! file` with the cursor after the `!`, type `chmod +x` <CR>.
+-- In visual mode every selected file goes on the line.
+local function oil_shell()
+  local a, b = vim.fn.line("v"), vim.fn.line(".")
+  local paths = oil_paths(math.min(a, b), math.max(a, b))
+  if #paths == 0 then
+    return
+  end
+  local keys = ":! " .. table.concat(paths, " ") .. "<Home><Right>"
+  if vim.fn.mode():match("^[vV\22]") then
+    keys = "<Esc>" .. keys
+  end
+  vim.api.nvim_feedkeys(vim.keycode(keys), "n", false)
+end
+
+-- Dired's header line: the full path of the folder, in the winbar
+function _G.oil_winbar()
+  local buf = vim.api.nvim_win_get_buf(vim.g.statusline_winid)
+  local dir = require("oil").get_current_dir(buf)
+  return dir and (" " .. dir:gsub("%%", "%%%%")) or vim.api.nvim_buf_get_name(buf)
+end
+
+require("oil").setup({
+  columns = { "permissions", "size", { "mtime", format = "%b %d %H:%M" } },
+  win_options = { winbar = "%!v:lua.oil_winbar()" },
+  delete_to_trash = true,
+  constrain_cursor = "name",
+  view_options = { show_hidden = true },
+  keymaps = {
+    ["!"] = { mode = { "n", "x" }, desc = "Shell command on file(s)", callback = oil_shell },
+    -- The cursor sticks to the names; this frees it to edit the permissions
+    ["ge"] = {
+      mode = "n",
+      desc = "Toggle editing the columns (permissions)",
+      callback = function()
+        local config = require("oil.config")
+        config.constrain_cursor = config.constrain_cursor == "name" and "editable" or "name"
+        vim.notify("oil: cursor on " .. (config.constrain_cursor == "name" and "names" or "columns + names"))
+      end,
+    },
+  },
+})
+vim.keymap.set("n", "-", "<cmd>Oil<cr>", { desc = "Open parent directory (oil)" })

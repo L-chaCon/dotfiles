@@ -16,8 +16,8 @@ vim.g.autoformat = true
 opt.clipboard = ""
 
 -- UI
-opt.number = true
-opt.relativenumber = true
+opt.number = false
+opt.relativenumber = false
 opt.signcolumn = "yes"
 opt.cursorline = false
 opt.colorcolumn = "80" -- If it is 80, is not line inclusive

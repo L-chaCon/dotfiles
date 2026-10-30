@@ -113,6 +113,12 @@ map("n", "<leader>fb", pick("buffers"), { desc = "Buffers" })
 map("n", "<leader>/", pick("grep"), { desc = "Grep" })
 map("n", "<leader>sg", pick("grep"), { desc = "Grep" })
 map("n", "<leader>sA", pick("grep", { ignored = true, hidden = true }), { desc = "Grep all (including ignored)" })
+-- Only the folder you're in: the one oil shows, or the current file's
+local function here()
+  return require("oil").get_current_dir() or vim.fn.expand("%:p:h")
+end
+map("n", "<leader>sG", function() Snacks.picker.grep({ cwd = here() }) end, { desc = "Grep (current folder)" })
+map("n", "<leader>fF", function() Snacks.picker.files({ cwd = here() }) end, { desc = "Find Files (current folder)" })
 map({ "n", "x" }, "<leader>sw", pick("grep_word"), { desc = "Grep word / selection" })
 map("n", "<leader>sb", pick("lines"), { desc = "Buffer Lines" })
 map("n", "<leader>sd", pick("diagnostics"), { desc = "Diagnostics" })
@@ -130,7 +136,9 @@ map("n", "<leader>st", function() Snacks.picker.todo_comments() end, { desc = "T
 map("n", "]t", function() require("todo-comments").jump_next() end, { desc = "Next Todo" })
 map("n", "[t", function() require("todo-comments").jump_prev() end, { desc = "Prev Todo" })
 map("n", "<leader>n", function() Snacks.notifier.show_history() end, { desc = "Notification History" })
-map("n", "<leader>e", function() Snacks.explorer() end, { desc = "File Explorer" })
+map("n", "<leader>e", "<cmd>Oil<cr>", { desc = "Oil (file's directory)" })
+map("n", "<leader>E", function() require("oil").open(vim.fn.getcwd()) end, { desc = "Oil (cwd)" })
+map("n", "<leader>fe", function() Snacks.explorer() end, { desc = "File Explorer (tree)" })
 map("n", "<leader>;", function() require("dropbar.api").pick() end, { desc = "Pick Breadcrumb" })
 
 -- Git
@@ -152,6 +160,8 @@ Snacks.toggle({
   get = function() return vim.b.autoformat ~= false end,
   set = function(state) vim.b.autoformat = state end,
 }):map("<leader>uF")
+Snacks.toggle.option("number", { name = "Line Numbers" }):map("<leader>ul")
+Snacks.toggle.option("relativenumber", { name = "Relative Numbers" }):map("<leader>uL")
 Snacks.toggle.option("wrap", { name = "Wrap" }):map("<leader>uw")
 Snacks.toggle.option("spell", { name = "Spelling" }):map("<leader>us")
 Snacks.toggle.option("conceallevel", { off = 0, on = 2, name = "Conceal Level" }):map("<leader>uc")

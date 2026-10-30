@@ -24,4 +24,4 @@
 
 # Personal Option
 --style="numbers,changes,header"
---color="always"
+--color="auto"
