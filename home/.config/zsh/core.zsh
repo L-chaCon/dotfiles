@@ -68,6 +68,7 @@ source "$HOME/.config/zsh/modules/personal.zsh"
 source "$HOME/.config/zsh/modules/fzf.zsh"
 source "$HOME/.config/zsh/modules/lsd.zsh"
 source "$HOME/.config/zsh/modules/zoxide.zsh"
+source "$HOME/.config/zsh/modules/claude.zsh"
 
 [[ "$(uname)" == "Darwin" ]] && \
   [[ -f "$HOME/.config/zsh/modules/brew.zsh" ]] && \

@@ -48,7 +48,7 @@ _fzf_git_fzf() {
   fzf --height=50% \
     --layout=reverse --multi --min-height=20 --border \
     --border-label-pos=2 \
-    --color='bg:black,bg+:black,fg:white,header:cyan:italic:underline,info:green,query:white' \
+    --color='bg:-1,bg+:black,fg:-1,header:cyan:italic:underline,info:green,query:-1' \
     --preview-window='right,50%,border-left' \
     --bind='ctrl-/:change-preview-window(down,50%,border-top|hidden|)' "$@"
 }
