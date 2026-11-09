@@ -28,7 +28,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 ```bash
 git clone https://github.com/L-chaCon/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-./pow init          # installs Homebrew, packages, stows configs, inserts a managed block into ~/.zshrc
+./pow init          # installs Homebrew, clones ai_docs, installs packages, stows configs, inserts a managed block into ~/.zshrc
 ./pow link          # makes `pow` available from anywhere
 # restart terminal
 pow git chacon      # set git identity (or: pow git work)
@@ -43,7 +43,7 @@ pow git chacon      # set git identity (or: pow git work)
 ```bash
 git clone git@github.com:L-chaCon/dotfiles.git ~/.dotfiles
 cd ~/.dotfiles
-./pow init          # installs packages/pacman, stows configs, links Omarchy themes, inserts a managed block into ~/.zshrc
+./pow init          # clones ai_docs, installs packages/pacman, stows configs, links Omarchy themes, inserts a managed block into ~/.zshrc
 ./pow link          # makes `pow` available from anywhere (the Omarchy hooks call ~/.local/bin/pow)
 # log out and back in if pow changed your login shell
 pow git chacon
@@ -55,8 +55,8 @@ The repo can live anywhere — `pow` resolves its own location, so it doesn't ha
 ## Daily use
 
 ```bash
-pow update          # pull latest dotfiles + update packages + restow
-pow doctor          # health check (tools, nvim tools, symlinks, git profile, Omarchy drift)
+pow update          # pull latest dotfiles + ai_docs, update packages, restow
+pow doctor          # health check (tools, nvim tools, ai_docs, symlinks, git profile, Omarchy drift)
 pow stow            # restow after adding or removing config files
 pow check           # Omarchy only: detect configs Omarchy reset or unlinked
 pow repair          # Omarchy only: restore reset configs from git, restow, reload Hyprland
@@ -66,6 +66,13 @@ pow git current     # show active profile
 pow git chacon      # switch to personal identity
 pow git work        # switch to work identity
 ```
+
+## ai_docs
+
+`pow init` clones the private [`L-chaCon/ai_docs`](https://github.com/L-chaCon/ai_docs) repo to `~/.ai_docs` over SSH
+(through the 1Password agent, so do the 1Password step first). It's the library the `recall-docs` and `archive-docs`
+pi skills read and write. If it's already there, init leaves it alone; `pow doctor` reports it missing. `pow update` pulls it
+(fast-forward only), and skips it with a reminder to commit first if it has uncommitted changes.
 
 ## Zsh model
 
