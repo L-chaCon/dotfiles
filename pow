@@ -31,6 +31,9 @@ readonly GIT_PROFILES=(chacon work)
 # clangd from the Xcode CLT.
 readonly NVIM_TOOLS=(tree-sitter rg fd jq go gopls gofumpt goimports dlv pyright ruff
   lua-language-server stylua shfmt vscode-json-language-server rust-analyzer clangd)
+# Private ai_docs library used by the recall-docs / archive-docs pi skills.
+readonly AI_DOCS_DIR="$HOME/.ai_docs"
+readonly AI_DOCS_REPO='git@github.com:L-chaCon/ai_docs.git'
 readonly ZSH_CORE_PATH='$HOME/.config/zsh/core.zsh'
 readonly ZSHRC_MANAGED_START='### MANAGED BY DOTFILES START (DO NOT EDIT)'
 readonly ZSHRC_MANAGED_END='### MANAGED BY DOTFILES END (DO NOT EDIT)'
@@ -315,6 +318,68 @@ __install_zsh_plugins() {
   fi
 }
 
+# Prints the first usable 1Password SSH agent socket. Needed on a fresh machine,
+# where neither core.zsh (SSH_AUTH_SOCK) nor ~/.ssh/config is in place yet.
+__ssh_agent_sock() {
+  local sock
+  for sock in \
+    "${SSH_AUTH_SOCK:-}" \
+    "$HOME/.1password/agent.sock" \
+    "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"; do
+    [[ -n "$sock" && -S "$sock" ]] && echo "$sock" && return 0
+  done
+  return 1
+}
+
+__clone_ai_docs() {
+  if [[ -d "$AI_DOCS_DIR/.git" ]]; then
+    __ok "ai_docs already present at $AI_DOCS_DIR"
+    return 0
+  fi
+
+  if [[ -e "$AI_DOCS_DIR" ]]; then
+    __err "$AI_DOCS_DIR exists but is not a git repo — move it aside and rerun"
+    return 1
+  fi
+
+  local sock
+  sock="$(__ssh_agent_sock)" ||
+    __warn "No 1Password SSH agent socket found — clone will probably fail"
+
+  __info "Cloning $AI_DOCS_REPO → $AI_DOCS_DIR..."
+  if SSH_AUTH_SOCK="${sock:-${SSH_AUTH_SOCK:-}}" \
+    GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" \
+    git clone "$AI_DOCS_REPO" "$AI_DOCS_DIR"; then
+    __ok "ai_docs cloned"
+    return 0
+  fi
+
+  __err "ai_docs clone failed — check 1Password SSH agent, then run: pow init"
+  return 1
+}
+
+__update_ai_docs() {
+  if [[ ! -d "$AI_DOCS_DIR/.git" ]]; then
+    __warn "ai_docs not found at $AI_DOCS_DIR — run: pow init"
+    return 1
+  fi
+
+  if [[ -n "$(git -C "$AI_DOCS_DIR" status --porcelain)" ]]; then
+    __warn "ai_docs has uncommitted changes — commit them first, then run: pow update"
+    return 1
+  fi
+
+  local sock
+  sock="$(__ssh_agent_sock)" || true
+  if SSH_AUTH_SOCK="${sock:-${SSH_AUTH_SOCK:-}}" git -C "$AI_DOCS_DIR" pull --ff-only; then
+    __ok "ai_docs updated"
+    return 0
+  fi
+
+  __warn "ai_docs pull failed — resolve it in $AI_DOCS_DIR"
+  return 1
+}
+
 __install_pi_packages() {
   if ! __cmd pi; then
     __warn "pi not found in PATH — skipping pi extensions"
@@ -455,10 +520,17 @@ cmd_init() {
 
   __header "Initialising dotfiles ($(uname))"
 
+  # On macOS git comes from the Xcode CLT, which the Homebrew installer sets up,
+  # so ai_docs is cloned right after Homebrew.
   if __is_mac; then
     __header "Homebrew"
     __install_homebrew || return 1
+  fi
 
+  __header "ai_docs"
+  __clone_ai_docs || __warn "ai_docs step failed"
+
+  if __is_mac; then
     __header "Homebrew packages"
     __install_packages || return 1
   fi
@@ -500,6 +572,8 @@ cmd_update() {
     return 1
   }
   __ok "Repository updated"
+
+  __update_ai_docs || true
 
   if __is_mac; then
     brew update && brew upgrade
@@ -609,6 +683,20 @@ cmd_doctor() {
     __ok "Git profile: $profile"
   else
     doctor_warn "No git profile set — run: pow git chacon"
+  fi
+
+  if [[ -d "$AI_DOCS_DIR/.git" ]]; then
+    local ai_docs_remote
+    ai_docs_remote="$(git -C "$AI_DOCS_DIR" remote get-url origin 2>/dev/null || true)"
+    if [[ "$ai_docs_remote" == *L-chaCon/ai_docs* ]]; then
+      __ok "ai_docs: $AI_DOCS_DIR"
+    else
+      doctor_warn "ai_docs origin is '${ai_docs_remote:-none}', expected $AI_DOCS_REPO"
+    fi
+  elif [[ -e "$AI_DOCS_DIR" ]]; then
+    doctor_issue "$AI_DOCS_DIR exists but is not a git repo"
+  else
+    doctor_issue "ai_docs missing at $AI_DOCS_DIR  (run: pow init)"
   fi
 
   if __zshrc_has_managed_block; then
