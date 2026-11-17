@@ -33,6 +33,7 @@ vim.pack.add({
   gh("Bekaboo/dropbar.nvim"),
   gh("folke/todo-comments.nvim"),
   gh("stevearc/oil.nvim"),
+  gh("Wansmer/treesj"),
 }, { confirm = false })
 
 -- Colorscheme -----------------------------------------------------------------
@@ -206,6 +207,7 @@ local parsers = {
   "make",
   "markdown",
   "markdown_inline",
+  "nix",
   "python",
   "query",
   "regex",
@@ -237,6 +239,11 @@ ai.setup({
     },
   },
 })
+
+-- Split/join: J toggles a nested structure (json, table, args...) between
+-- one line and many.
+require("treesj").setup({ use_default_keymaps = false, max_join_length = 80 })
+vim.keymap.set("n", "J", "<cmd>TSJToggle<cr>", { desc = "Split/join structure" })
 
 -- Git -------------------------------------------------------------------------
 require("gitsigns").setup({
