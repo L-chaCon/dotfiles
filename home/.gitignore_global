@@ -2,3 +2,6 @@
 *.swo
 .DS_Store
 .venv/
+
+# Herdr app: git worktrees it creates (~/.herdr/worktrees)
+.herdr/

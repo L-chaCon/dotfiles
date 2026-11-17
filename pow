@@ -710,6 +710,8 @@ cmd_doctor() {
     "$HOME/.gitconfig" \
     "$HOME/.config/starship.toml" \
     "$HOME/.config/herdr/config.toml" \
+    "$HOME/.config/herdr-app/settings.json" \
+    "$HOME/.config/herdr-app/keys.json" \
     "$HOME/.config/ghostty/config.ghostty"; do
     if __is_managed_link "$path"; then
       __ok "managed: $(basename "$path")"
