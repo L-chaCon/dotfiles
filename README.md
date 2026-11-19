@@ -7,7 +7,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 | Category | Tool |
 |---|---|
 | Shell | Zsh + Starship |
-| Terminal | Herdr (macOS) |
+| Terminal + multiplexer | Herdr app (macOS) |
 | Editor | Neovim (built-ins + vim.pack) |
 | Window manager | AeroSpace (macOS) · Hyprland (Omarchy) |
 | File tools | fzf, fd, bat, lsd, ripgrep, zoxide |
@@ -15,7 +15,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 | Kubernetes | k9s |
 | AI agent | pi |
 | Dotfile manager | GNU Stow |
-| Theme | Nightfox (terminal, editor, k9s, bat, pi, Omarchy) |
+| Theme | Nightfox (Herdr, editor, k9s, bat, pi, Omarchy) |
 
 ## Bootstrap — macOS
 
@@ -59,6 +59,7 @@ pow doctor          # health check (tools, nvim tools, ai_docs, symlinks, git pr
 pow stow            # restow after adding or removing config files
 pow check           # Omarchy only: detect configs Omarchy reset or unlinked
 pow repair          # Omarchy only: restore reset configs from git, restow, reload Hyprland
+pow unlink          # remove pow from ~/.local/bin
 pow edit            # open the dotfiles repo in $EDITOR
 pow git list        # list git profiles
 pow git current     # show active profile
@@ -85,7 +86,8 @@ pi skills read and write. If it's already there, init leaves it alone; `pow doct
 
 Everything outside that block stays machine-local and may be edited by you or by other tools.
 
-`core.zsh` always loads the common modules in `~/.config/zsh/modules/` (aliases in `personal.zsh`, fzf, lsd, zoxide);
+`core.zsh` always loads the common modules in `~/.config/zsh/modules/` (aliases in `personal.zsh`, fzf, lsd, zoxide, and `claude.zsh`, the
+`pi`/`claude` wrappers that pick the work or personal account from the launch folder);
 `brew.zsh` comes from `home-mac/` and is only loaded on macOS.
 
 Work-only shell modules live in `~/.config/zsh/work/` and are **not** auto-loaded.
