@@ -149,8 +149,42 @@ async function nvimFor(spaceId) {
   return null;
 }
 
+// ---------- nvim on another machine ----------
+// None of our config there: a stock nvim we start in the space's "nvim" tab, listening on a
+// socket named after the space, and drive with `nvim --server` run on that machine. Its yanks
+// go to this Mac's clipboard via OSC 52 (Herdr never lets programs read the clipboard, so
+// pasting gives back nvim's own last yank; Cmd-V pastes the Mac's). Without nvim there: vim,
+// else vi, in a tab of their own per file (they can't be told to open another one).
+const remoteSock = (space) => `/tmp/herdr-nvim-${String(space).split("/").pop()}.sock`;
+const REMOTE_LUA = String.raw`local ok, osc = pcall(require, 'vim.ui.clipboard.osc52'); if ok then local last = {{''}, 'v'}; local copy = osc.copy('+'); local function save(lines, regtype) last = {lines, regtype}; copy(lines, regtype) end; local function paste() return last end; vim.g.clipboard = {name = 'herdr-osc52', copy = {['+'] = save, ['*'] = save}, paste = {['+'] = paste, ['*'] = paste}}; vim.o.clipboard = 'unnamedplus' end`;
+const warnedNoNvim = new Set();
+
+async function openRemote(abs, how, ctx) {
+  const sock = remoteSock(ctx.space), on = ctx.on;
+  const showTab = () => {
+    const tab = spaces().find(s => s.id === ctx.space)?.tabs.find(t => t.name === "nvim");
+    if (tab) run("tab.select", { id: tab.id });
+  };
+  const expr = `[execute(${vimString(how + " ")} .. fnameescape(${vimString(abs)})), 'ok'][1]`;
+  const r = await exec("nvim", ["--server", sock, "--remote-expr", expr], { on, timeout: 5000 }).catch(() => null);
+  if (r?.code === 0 && r.stdout.trim() === "ok") return showTab();
+  if (r?.code === 0 && r.stdout.trim()) return notify({ title: "nvim couldn't open it", body: r.stdout.trim(), level: "error" });
+
+  // Nobody listening (or no nvim there): start one.
+  const which = await exec("sh", ["-lc", "command -v nvim || command -v vim || command -v vi"], { on, timeout: 10000 }).catch(() => null);
+  const editor = which?.stdout.trim().split("\n")[0]?.split("/").pop();
+  if (!editor) return notify({ title: `No nvim, vim or vi on ${on}`, level: "error" });
+  if (editor !== "nvim") {
+    if (!warnedNoNvim.has(on)) { warnedNoNvim.add(on); notify({ title: `No nvim on ${on}: using ${editor}`, body: "Install neovim there to open files in one editor tab.", level: "info" }); }
+    return run("tab.new", { name: abs.split("/").pop(), space: ctx.space, folder: ctx.root, argv: ["sh", "-lc", `${editor} ${shellQuote(abs)}`] });
+  }
+  const nvim = `rm -f ${shellQuote(sock)}; nvim --listen ${shellQuote(sock)} --cmd ${shellQuote("lua " + REMOTE_LUA)}`;
+  run("tab.new", { name: "nvim", space: ctx.space, folder: ctx.root, argv: ["sh", "-lc", `${nvim} ${shellQuote(abs)}; while true; do ${nvim}; done`] });
+}
+
 // Opens a file in the space's nvim ("edit" or "vsplit") and shows that nvim.
 async function openInNvim(abs, how, ctx) {
+  if (ctx.on) return openRemote(abs, how, ctx);
   const n = await nvimFor(ctx.space);
   if (n) {
     const r = await exec("nvim", ["--server", n.sock, "--remote-expr", `v:lua.HerdrOpen(${vimString(abs)}, ${vimString(how)})`], { timeout: 5000 })
@@ -347,7 +381,6 @@ export default class Files extends View {
   open(path, entry, how, cx) {
     this.cursor = path;
     if (entry.dir) return this.toggle(path, cx);
-    if (this.on) return notify({ title: "Can't open files from another machine in nvim", level: "error" });
     const abs = `${this.root}/${path}`;
     cx.spawn(async () => openInNvim(abs, how, this.ctx()));
     cx.notify();
@@ -520,8 +553,8 @@ export default class Files extends View {
     const m = props().menu, local = !m.on, items = [];
     const copy = (text) => (cx) => { cx.write_to_clipboard(text); this.done(); };
     if (!m.dir) {
-      if (local) items.push(["Open in nvim", "o", () => { this.done(); openInNvim(m.abs, "edit", m); }]);
-      if (local) items.push(["Open in nvim split", "v", () => { this.done(); openInNvim(m.abs, "vsplit", m); }]);
+      items.push(["Open in nvim", "o", () => { this.done(); openInNvim(m.abs, "edit", m); }]);
+      items.push(["Open in nvim split", "v", () => { this.done(); openInNvim(m.abs, "vsplit", m); }]);
     } else {
       items.push(["New tab here", "", () => { this.done(); run("tab.new", { space: m.space, folder: m.abs }); }]);
     }
