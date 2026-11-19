@@ -177,6 +177,10 @@ automatically-unhide-macos-hidden-apps = true
 [[on-window-detected]]
 if.app-id = 'com.mitchellh.ghostty'
 run = "move-node-to-workspace 6"
+# Herdr (same workspace as terminal)
+[[on-window-detected]]
+if.app-id = 'dev.herdr.app'
+run = "move-node-to-workspace 6"
 # Browser (Dia)
 [[on-window-detected]]
 if.app-id = 'company.thebrowser.dia'
