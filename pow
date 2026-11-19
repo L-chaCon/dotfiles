@@ -610,7 +610,7 @@ cmd_doctor() {
     ((++warnings))
   }
 
-  for tool in nvim zsh starship fzf bat zoxide lsd delta herdr stow git; do
+  for tool in nvim zsh starship fzf bat zoxide lsd delta stow git; do
     if __cmd "$tool"; then
       __ok "$tool"
     else
@@ -656,6 +656,12 @@ cmd_doctor() {
       __ok "aerospace"
     else
       doctor_warn "aerospace not found"
+    fi
+
+    if __cmd herdr-app; then
+      __ok "herdr-app"
+    else
+      doctor_warn "herdr-app not found  (run: pow init)"
     fi
   fi
 
@@ -709,10 +715,8 @@ cmd_doctor() {
     "$HOME/.config/zsh/core.zsh" \
     "$HOME/.gitconfig" \
     "$HOME/.config/starship.toml" \
-    "$HOME/.config/herdr/config.toml" \
     "$HOME/.config/herdr-app/settings.json" \
-    "$HOME/.config/herdr-app/keys.json" \
-    "$HOME/.config/ghostty/config.ghostty"; do
+    "$HOME/.config/herdr-app/keys.json"; do
     if __is_managed_link "$path"; then
       __ok "managed: $(basename "$path")"
     else

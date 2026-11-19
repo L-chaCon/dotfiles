@@ -27,24 +27,11 @@ setopt HIST_IGNORE_SPACE
 setopt HIST_SAVE_NO_DUPS
 setopt HIST_VERIFY
 
-# ── Herdr sessionizer (Ctrl-Space) ─────────────────────────────────────────────
-herdr_sessionizer_widget() {
-  ~/.local/scripts/herdr-sessionizer
-  zle reset-prompt
-}
-zle -N herdr_sessionizer_widget
-bindkey '^@' herdr_sessionizer_widget
-
 # ── Options ────────────────────────────────────────────────────────────────────
 set -o vi
 export LANG="en_GB.UTF-8"
 export EDITOR="nvim"
 export BAT="bat"
-
-# ── Ghostty shell integration ──────────────────────────────────────────────────
-if [[ -n $GHOSTTY_RESOURCES_DIR ]]; then
-  source "$GHOSTTY_RESOURCES_DIR"/shell-integration/zsh/ghostty-integration
-fi
 
 # ── Aliases ────────────────────────────────────────────────────────────────────
 alias rm="rm -iv"

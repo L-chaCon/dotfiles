@@ -7,8 +7,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 | Category | Tool |
 |---|---|
 | Shell | Zsh + Starship |
-| Terminal | Ghostty |
-| Multiplexer | Herdr |
+| Terminal | Herdr (macOS) |
 | Editor | Neovim (built-ins + vim.pack) |
 | Window manager | AeroSpace (macOS) · Hyprland (Omarchy) |
 | File tools | fzf, fd, bat, lsd, ripgrep, zoxide |
@@ -141,7 +140,7 @@ after every boot and Omarchy update, and send a desktop notification if anything
 │   ├── Brewfile.work   # macOS work packages (fill in yourself)
 │   ├── pacman          # Arch/Omarchy extra packages + nvim language tools
 │   └── pi              # pi extensions (all platforms)
-├── home/               # stowed to ~ on all platforms (zsh, nvim, ghostty, herdr, git, k9s, bat, lsd, starship, pi, scripts)
+├── home/               # stowed to ~ on all platforms (zsh, nvim, herdr-app, git, k9s, bat, lsd, starship, pi, scripts)
 ├── home-mac/           # stowed to ~ on macOS only (AeroSpace, brew zsh module, 1Password mac signing)
 ├── home-linux/         # stowed to ~ on Omarchy only (Hyprland, Omarchy hooks, 1Password linux signing)
 ├── omarchy/themes/     # Omarchy themes, symlinked as whole directories (not stowed)

@@ -17,7 +17,6 @@ brew "tree"
 brew "zoxide"
 
 # Dev tools
-brew "herdr"
 brew "mise"
 brew "neovim"
 brew "gh"
@@ -42,4 +41,4 @@ brew "rust-analyzer"
 # Apps
 cask "nikitabobko/tap/aerospace"
 cask "font-jetbrains-mono-nerd-font"
-cask "ghostty"
+cask "herdr-app"
