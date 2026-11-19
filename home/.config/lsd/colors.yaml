@@ -1,4 +1,4 @@
-# ANSI names only, so lsd follows the terminal palette (Nightfox in Ghostty)
+# ANSI names only, so lsd follows the terminal palette (Nightfox in Herdr)
 user: yellow
 group: dark_yellow
 permission:
