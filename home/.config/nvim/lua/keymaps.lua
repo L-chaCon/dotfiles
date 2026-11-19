@@ -29,6 +29,10 @@ map("n", "<right>", '<cmd>echo "Use l to move!!"<CR>')
 map("n", "<up>", '<cmd>echo "Use k to move!!"<CR>')
 map("n", "<down>", '<cmd>echo "Use j to move!!"<CR>')
 
+-- Jump between LSP references of the word under cursor (Snacks.words)
+map("n", "]]", function() Snacks.words.jump(vim.v.count1) end, { desc = "Next Reference" })
+map("n", "[[", function() Snacks.words.jump(-vim.v.count1) end, { desc = "Prev Reference" })
+
 -- Keep the selection when indenting
 map("x", "<", "<gv")
 map("x", ">", ">gv")
@@ -91,7 +95,15 @@ map("n", "<leader>xq", function()
     vim.cmd(("botright copen %d"):format(math.max(10, math.floor(vim.o.lines * 0.4))))
   end
 end, { desc = "Toggle Quickfix List" })
-map("n", "<leader>xr", "<cmd>QFRemoveCurrent<cr>", { desc = "Remove current from QuixFix List" })
+-- In the qf window it removes the entry under the cursor, elsewhere the current one
+map("n", "<leader>xr", function()
+  if vim.bo.buftype == "quickfix" then
+    vim.cmd(".QFRemove")
+  else
+    vim.cmd("QFRemove")
+  end
+end, { desc = "Remove entry from Quickfix List" })
+map("x", "<leader>xr", ":QFRemove<cr>", { silent = true, desc = "Remove selected from Quickfix List" })
 -- New list with only the entries ]q stops on; :colder gets the full one back
 map("n", "<leader>xv", function()
   local items = vim.tbl_filter(function(i) return i.valid == 1 end, vim.fn.getqflist())

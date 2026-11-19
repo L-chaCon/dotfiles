@@ -27,8 +27,8 @@ readonly DOTFILES_DIR="$(__resolve_script_dir)"
 readonly PACKAGES_DIR="$DOTFILES_DIR/packages"
 readonly GIT_PROFILES=(chacon work)
 # Binaries the nvim config expects on PATH (installed via packages/Brewfile on
-# macOS, packages/pacman on Linux). On macOS rust-analyzer comes from rustup and
-# clangd from the Xcode CLT.
+# macOS, packages/pacman on Linux). On macOS clangd comes from the Xcode CLT,
+# which the Homebrew installer sets up.
 readonly NVIM_TOOLS=(tree-sitter rg fd jq go gopls gofumpt goimports dlv pyright ruff
   lua-language-server stylua shfmt vscode-json-language-server rust-analyzer clangd)
 # Private ai_docs library used by the recall-docs / archive-docs pi skills.

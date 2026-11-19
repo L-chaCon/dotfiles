@@ -36,6 +36,8 @@ brew "lua-language-server"
 brew "stylua"
 brew "shfmt"
 brew "vscode-langservers-extracted"
+brew "rust-analyzer"
+# clangd comes from the Xcode CLT, which the Homebrew installer sets up
 
 # Apps
 cask "nikitabobko/tap/aerospace"

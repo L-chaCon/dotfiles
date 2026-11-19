@@ -38,7 +38,7 @@ opt.sidescrolloff = 8
 opt.splitbelow = true
 opt.splitright = true
 opt.splitkeep = "screen"
-opt.shortmess:append({ W = true, I = true, c = true, C = true })
+opt.shortmess:append({ W = true, c = true, C = true })
 
 -- Mouse
 opt.mouse = "a"
