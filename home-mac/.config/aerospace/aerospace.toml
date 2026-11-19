@@ -173,11 +173,7 @@ automatically-unhide-macos-hidden-apps = true
 
 
 
-#Terminal
-[[on-window-detected]]
-if.app-id = 'com.mitchellh.ghostty'
-run = "move-node-to-workspace 6"
-# Herdr (same workspace as terminal)
+# Terminal (Herdr)
 [[on-window-detected]]
 if.app-id = 'dev.herdr.app'
 run = "move-node-to-workspace 6"

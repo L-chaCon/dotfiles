@@ -5,11 +5,5 @@
 # Lives only on work machines; this repo is public.
 home/.config/zsh/work/tails.zsh
 
-# Herdr runtime/state files
-home/.config/herdr/*.log
-home/.config/herdr/session.json
-home/.config/herdr/release-notes.json
-home/.config/herdr/.plugins.lock
-
 # macOS
 .DS_Store
