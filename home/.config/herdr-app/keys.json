@@ -58,10 +58,10 @@
     "cmd-alt-9": "space.select:9",
     "ctrl-space": "mod.open:sessionizer",
     "ctrl-b": "mod.open:prefix",
-    "ctrl-h": "pane.go:left",
-    "ctrl-j": "pane.go:down",
-    "ctrl-k": "pane.go:up",
-    "ctrl-l": "pane.go:right"
+    "ctrl-h": "navigator.left",
+    "ctrl-j": "navigator.down",
+    "ctrl-k": "navigator.up",
+    "ctrl-l": "navigator.right"
   },
   "terminal": {
     "cmd-f": "terminal.search",
