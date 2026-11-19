@@ -58,6 +58,7 @@
     "cmd-alt-9": "space.select:9",
     "ctrl-space": "mod.open:sessionizer",
     "ctrl-b": "mod.open:prefix",
+    "cmd-e": "mod.open:files-panel",
     "ctrl-h": "navigator.left",
     "ctrl-j": "navigator.down",
     "ctrl-k": "navigator.up",
@@ -75,5 +76,8 @@
     "cmd-left": "send:\u0001",
     "cmd-right": "send:\u0005",
     "cmd-backspace": "send:\u0015"
+  },
+  "mod:prefix": {
+    "ctrl-b": "prefix.send"
   }
 }
