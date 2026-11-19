@@ -97,23 +97,29 @@ autocmd("BufWritePre", {
 -- QFix list: :Cfilter /pat/ keeps matching entries, :Cfilter! /pat/ drops them
 vim.cmd.packadd("cfilter")
 
-vim.api.nvim_create_user_command("QFRemoveCurrent", function()
+-- :QFRemove drops the current entry, :{range}QFRemove drops entries
+-- first..last. Inside the quickfix window, line N is entry N, so
+-- :'<,'>QFRemove removes the visually selected entries.
+vim.api.nvim_create_user_command("QFRemove", function(opts)
   local qf = vim.fn.getqflist({ idx = 0, items = 0 })
-
-  -- No quickfix list or invalid index
   if not qf.items or #qf.items == 0 or qf.idx == 0 then
     return
   end
 
-  -- Remove current entry (idx is 1-based)
-  table.remove(qf.items, qf.idx)
+  local first, last = qf.idx, qf.idx
+  if opts.range > 0 then
+    first, last = math.max(opts.line1, 1), math.min(opts.line2, #qf.items)
+  end
+  for i = last, first, -1 do
+    table.remove(qf.items, i)
+  end
 
-  -- Replace quickfix list
+  -- "r" keeps the title and the list's place in :colder/:cnewer history
   vim.fn.setqflist({}, "r", {
     items = qf.items,
-    idx = math.min(qf.idx, #qf.items),
+    idx = math.max(1, math.min(first, #qf.items)),
   })
-end, {})
+end, { range = true })
 
 -- :make output often comes from Docker. Map container paths to this machine
 -- (/app/x -> x, site-packages -> local .venv/venv), and turn entries whose
