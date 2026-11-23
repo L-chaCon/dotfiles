@@ -15,16 +15,30 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
 import {
   spaces, panes, focused, exec, readTextFile, watchFolder, theme, settings, window, terminals,
-  run, home, props, openOverlay, closeOverlay, nextCommand, notify, checking,
+  run, hc, home, props, openOverlay, closeOverlay, nextCommand, notify, checking,
 } from "herdr";
 
-function location() {
+// `live`: folders found by asking another machine (remoteCwd below), by terminal address.
+function location(live) {
   const space = spaces().find(s => s.active), f = focused();
   const pane = f?.pane ? panes().find(p => p.pane === f.pane) : null;
   const on = f?.pane === null ? (f.terminal?.includes("/") ? f.terminal.split("/")[0] : null) : space?.machine ?? null;
-  return { cwd: pane?.cwd || f?.cwd || space?.folder, on, space: space?.id };
+  const remote = on && f?.terminal ? live?.get(f.terminal) : null;
+  return { cwd: remote || pane?.cwd || f?.cwd || space?.folder, on, space: space?.id };
 }
-const key = () => JSON.stringify(location());
+
+// Where a remote terminal really is. Herdr only knows the folder it started in (the remote
+// shell doesn't report `cd`s), so ask that machine: the shell's own folder, or under tmux
+// the folder of the tmux pane its client shows.
+async function remoteCwd(address, on) {
+  const g = await hc(["get", address, "--json"]).catch(() => null);
+  let fg; try { fg = JSON.parse(g?.stdout ?? "").foreground; } catch { return null; }
+  if (!fg) return null;
+  if (!/^tmux/i.test(fg.name ?? "")) return fg.cwd ?? null;
+  const r = await exec("tmux", ["list-clients", "-F", "#{client_pid}\t#{pane_current_path}"], { on, timeout: 5000 }).catch(() => null);
+  const line = r?.stdout.split("\n").find(l => l.split("\t")[0] === String(fg.pid));
+  return line?.split("\t")[1] || fg.cwd || null;
+}
 const PER_FOLDER = 500, TOTAL = 5000, ROW = 26;
 
 // ---------- icons ----------
@@ -228,8 +242,9 @@ export default class Files extends View {
     this.showHidden = localStorage.getItem("hidden") !== "0";
     this.showIgnored = localStorage.getItem("ignored") === "1";
     this.showInfo = localStorage.getItem("info") !== "0";
+    this.live = new Map();
     this.refresh(cx);
-    cx.timer.every(10000, cx => this.refresh(cx));
+    cx.timer.every(10000, cx => { this.refresh(cx); this.probe(cx); });
     cx.spawn(async cx => { for (;;) { const c = await nextCommand(); this.command(c, cx); cx.notify(); } });
     if (checking()) return;
     // Follow nvim: its state files change whenever it shows another file.
@@ -247,9 +262,25 @@ export default class Files extends View {
   hasKeys() { return Boolean(this.handle?.is_focused()); }
 
   // While the panel has the keyboard, it stays on the folder it showed.
-  here() {
-    if (this.hasKeys() && this.context) return { cwd: this.context.cwd, on: this.context.on, space: this.context.space, key: this.context.key };
-    return { ...location(), key: key() };
+  here(force) {
+    if (!force && this.hasKeys() && this.context) return { cwd: this.context.cwd, on: this.context.on, space: this.context.space, key: this.context.key };
+    const l = location(this.live);
+    return { ...l, key: JSON.stringify(l) };
+  }
+
+  // Remote terminals: look up where they are; a new folder moves the tree there (`force`: even
+  // while the tree has the keyboard, as right after Cmd-E / prefix-e).
+  probe(cx, force) {
+    const f = focused(), { on } = location();
+    if (!on || !f?.terminal || checking()) return;
+    const address = f.terminal;
+    cx.spawn(async cx => {
+      const cwd = await remoteCwd(address, on);
+      if (!cwd || this.live.get(address) === cwd) return;
+      this.live.set(address, cwd);
+      if (force || !this.hasKeys()) this.refresh(cx, true);
+      cx.notify();
+    });
   }
 
   watch(root, cx) {
@@ -275,8 +306,8 @@ export default class Files extends View {
     if (entries.length > PER_FOLDER || used + entries.length > TOTAL) this.limited = true;
   }
 
-  refresh(cx) {
-    const { cwd, on, space, key: next } = this.here();
+  refresh(cx, force) {
+    const { cwd, on, space, key: next } = this.here(force);
     if (next !== this.context?.key) {
       if (this.context) this.saved.set(this.context.key, { folders: this.folders, cursor: this.cursor });
       const saved = this.saved.get(next);
@@ -406,6 +437,7 @@ export default class Files extends View {
 
   command(c, cx) {
     if (c === "focus") {
+      this.probe(cx, true);
       this.handle.focus();
       if (!this.cursor || !this.flat.some(r => r.path === this.cursor)) this.cursor = this.flat[0]?.path ?? null;
       this.scrollToCursor = true;
@@ -503,7 +535,11 @@ export default class Files extends View {
 
   render(cx) {
     if (this.isMenu) return this.renderMenu(cx);
-    if (this.here().key !== this.context?.key) this.refresh(cx);
+    if (this.here().key !== this.context?.key) {
+      const t = focused()?.terminal;
+      if (t !== this.probed) { this.probed = t; this.probe(cx); } // another terminal: where is it?
+      this.refresh(cx);
+    }
     const f = focused();
     if (f?.pane && !this.hasKeys()) this.backPane = f.pane;
     const t = theme(), keys = this.hasKeys();
