@@ -9,7 +9,8 @@
 # pi uses Claude through pi-claude-bridge, which runs the `claude` CLI and
 # inherits CLAUDE_CONFIG_DIR. MCP servers live in each pi dir's mcp.json, so
 # `pi mcp add` lands in whichever account the current folder belongs to.
-# Everything else (settings, extensions, skills, themes, AGENTS.md) is shared:
+# Everything else (settings, extensions, skills, themes, agents, workflows,
+# AGENTS.md) is shared:
 # the personal dir symlinks it from ~/.pi/agent.
 #
 # Personal must leave CLAUDE_CONFIG_DIR *unset*: setting it (even to ~/.claude)
@@ -21,7 +22,7 @@ __claude_is_personal() { [[ "${PWD:A}/" == "$HOME/github.com/chaCon/"* ]]; }
 __pi_personal_dir_ensure() {
   local shared="$HOME/.pi/agent" personal="$HOME/.pi/agent-personal" item
   mkdir -p "$personal"
-  for item in AGENTS.md settings.json claude-bridge.json extensions npm skills themes; do
+  for item in AGENTS.md settings.json claude-bridge.json extensions npm skills themes agents workflows; do
     [[ -e "$shared/$item" && ! -e "$personal/$item" ]] && ln -s "$shared/$item" "$personal/$item"
   done
 }

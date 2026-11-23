@@ -31,3 +31,7 @@ agent/extensions/**/node_modules/
 !agent/skills/**
 !agent/mcp.json
 !agent/APPEND_SYSTEM.md
+!agent/agents/
+!agent/agents/**
+!agent/workflows/
+!agent/workflows/**
