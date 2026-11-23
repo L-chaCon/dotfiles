@@ -3,3 +3,4 @@
 # One source per line. Comments (#) and blank lines are ignored.
 npm:@plannotator/pi-extension
 npm:pi-claude-bridge
+npm:@tintinweb/pi-subagents

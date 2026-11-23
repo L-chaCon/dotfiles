@@ -90,6 +90,11 @@ Everything outside that block stays machine-local and may be edited by you or by
 `pi`/`claude` wrappers that pick the work or personal account from the launch folder);
 `brew.zsh` comes from `home-mac/` and is only loaded on macOS.
 
+pi subagents (`@tintinweb/pi-subagents`, in `packages/pi`) get two TDD agents from `home/.pi/agent/agents/`
+(`test-writer`, `implementer`) and a gated `tdd` workflow from `home/.pi/agent/workflows/tdd.js`: the test-writer's
+tests must fail, get sha256-fingerprinted, and the implementer only passes if they are unchanged and green.
+Use it with *"run the tdd workflow: <task>"*, or step by step with `@test-writer …` then `@implementer …`.
+
 Work-only shell modules live in `~/.config/zsh/work/` and are **not** auto-loaded.
 Opt in from your real `~/.zshrc` when needed, for example:
 
