@@ -658,10 +658,10 @@ cmd_doctor() {
       doctor_warn "aerospace not found"
     fi
 
-    if __cmd herdr-app; then
-      __ok "herdr-app"
+    if [[ -d /Applications/Rex.app ]]; then
+      __ok "Rex"
     else
-      doctor_warn "herdr-app not found  (run: pow init)"
+      doctor_warn "Rex not found  (install the Rex app)"
     fi
   fi
 
@@ -715,8 +715,7 @@ cmd_doctor() {
     "$HOME/.config/zsh/core.zsh" \
     "$HOME/.gitconfig" \
     "$HOME/.config/starship.toml" \
-    "$HOME/.config/herdr-app/settings.json" \
-    "$HOME/.config/herdr-app/keys.json"; do
+    "$HOME/.config/rex/init.lua"; do
     if __is_managed_link "$path"; then
       __ok "managed: $(basename "$path")"
     else

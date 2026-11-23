@@ -173,9 +173,9 @@ automatically-unhide-macos-hidden-apps = true
 
 
 
-# Terminal (Herdr)
+# Terminal (Rex)
 [[on-window-detected]]
-if.app-id = 'dev.herdr.app'
+if.app-id = 'com.superlogical.rex'
 run = "move-node-to-workspace 6"
 # Browser (Dia)
 [[on-window-detected]]

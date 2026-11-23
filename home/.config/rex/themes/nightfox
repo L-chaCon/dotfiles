@@ -1,5 +1,5 @@
 # Nightfox for Rex (Ghostty theme format).
-# Same palette as herdr-app/themes/nightfox.json.
+# Nightfox palette (same as nvim, k9s, bat and pi).
 # Import once: command palette > "Import Theme File", or Settings > Themes > Import.
 
 background = #192330

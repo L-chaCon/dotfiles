@@ -1,6 +1,6 @@
 -- vim-tmux-navigator: ctrl+h/j/k/l go to nvim when the pane runs it, else to the
 -- pane that way. nvim moves between its own windows and, at its edge, runs
--- `rex focus <direction>` (nvim/lua/herdr.lua). Based on rex-navigator.nvim.
+-- `rex focus <direction>` (nvim/lua/rex.lua). Based on rex-navigator.nvim.
 local function in_nvim(ctx)
   local p = rex.block.call("com.superlogical.terminal", "process", {
     session_id = ctx.session_id,

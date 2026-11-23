@@ -41,4 +41,3 @@ brew "rust-analyzer"
 # Apps
 cask "nikitabobko/tap/aerospace"
 cask "font-jetbrains-mono-nerd-font"
-cask "herdr-app"
