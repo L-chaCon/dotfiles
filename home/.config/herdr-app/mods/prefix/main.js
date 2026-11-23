@@ -1,8 +1,19 @@
 // tmux-style prefix: Ctrl-B opens this, the next key runs a command (like tmux), then it closes.
-// Esc or any unbound key just closes it. Ctrl-B twice sends Ctrl-B to the program.
+// Esc or any unbound key just closes it. Ctrl-B twice sends Ctrl-B to the program: the second
+// press can't reach on_key_down (the global ctrl-b would toggle this popup shut), so keys.json
+// binds it to `prefix.send` while this has the keyboard.
+// A terminal running tmux (here or on another machine) gets Ctrl-B straight away instead: tmux
+// owns the prefix there. Cmd-E still opens the file tree (files-panel mod).
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { run, hc, theme, props, closeOverlay, focused, spaces, layout } from "herdr";
+import { run, hc, theme, props, closeOverlay, focused, spaces, layout, terminals, nextCommand, checking } from "herdr";
+
+const sendPrefix = () => { const term = focused()?.terminal; if (term) hc(["keys", term, "ctrl+b"]); };
+function inTmux() {
+  const term = focused()?.terminal;
+  const t = term && terminals().find((x) => x.address === term);
+  return [t?.program?.key, t?.program?.name, t?.foreground?.name].some((n) => /^tmux/i.test(n ?? ""));
+}
 
 const cwd = () => focused()?.cwd ?? spaces().find((s) => s.active)?.folder;
 
@@ -67,6 +78,8 @@ function keyOf(e) {
 export default class Prefix extends View {
   init(_props, cx) {
     this.handle = cx.focus_handle();
+    if (!checking() && inTmux()) { this.passthrough = true; sendPrefix(); this.close(); return; }
+    cx.spawn(async () => { for (;;) { if (await nextCommand() === "send") { this.close(); sendPrefix(); } } });
     this.handle.focus();
     cx.timer.after(50, () => this.handle.focus());
   }
@@ -74,6 +87,7 @@ export default class Prefix extends View {
   close() { closeOverlay(props().overlay); }
 
   render() {
+    if (this.passthrough) return div();
     const t = theme();
     const cell = (k, label) => h_flex().w(130).gap(8).items_center()
       .child(div().w(22).px(4).rounded(4).bg(t.raised).text_color(t.accent).child(k))
@@ -88,11 +102,7 @@ export default class Prefix extends View {
         const m = e.modifiers;
         if (["shift", "control", "alt", "platform"].includes(e.key)) return; // a lone modifier: keep waiting
         this.close();
-        if (m.control && e.key === "b") {
-          const term = focused()?.terminal;
-          if (term) hc(["keys", term, "ctrl+b"]);
-          return;
-        }
+        if (m.control && e.key === "b") return sendPrefix(); // in case the key section didn't catch it
         if (m.control || m.platform) return;
         KEYS[keyOf(e)]?.[1]();
       })
