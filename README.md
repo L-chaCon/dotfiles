@@ -7,7 +7,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 | Category | Tool |
 |---|---|
 | Shell | Zsh + Starship |
-| Terminal + multiplexer | Herdr app (macOS) |
+| Terminal + multiplexer | Rex (macOS) |
 | Editor | Neovim (built-ins + vim.pack) |
 | Window manager | AeroSpace (macOS) · Hyprland (Omarchy) |
 | File tools | fzf, fd, bat, lsd, ripgrep, zoxide |
@@ -15,7 +15,7 @@ Personal developer environment for macOS and Omarchy (Arch Linux).
 | Kubernetes | k9s |
 | AI agent | pi |
 | Dotfile manager | GNU Stow |
-| Theme | Nightfox (Herdr, editor, k9s, bat, pi, Omarchy) |
+| Theme | Nightfox (Rex, editor, k9s, bat, pi, Omarchy) |
 
 ## Bootstrap — macOS
 
@@ -105,6 +105,28 @@ Opt in from your real `~/.zshrc` when needed, for example:
 
 `work/tails.zsh` contains internal account IDs/URLs and is gitignored — it only exists on work machines.
 
+## Rex
+
+Rex's config is Lua, in `home/.config/rex/` (stowed to `~/.config/rex/`). Apply edits with `rex config reload`.
+
+| Key | Action |
+|---|---|
+| `Ctrl-b` then `c` / `n` / `p` / `1`–`9` / `,` / `&` | New / next / previous / go to / rename / close tab |
+| `Ctrl-b` then `s` / `w` / `(` / `)` / `$` | Session switcher / Go to Anything / previous / next / rename session |
+| `Ctrl-b` then `v` / `-` / `x` / `z` | Split right / down, close pane, zoom |
+| `Ctrl-b` then `[` / `?` | Find / command palette (`Ctrl-b Ctrl-b` sends `Ctrl-b`) |
+| `Ctrl-b` then `g` / `G` | New git worktree as a session / remove this worktree |
+| `Ctrl-b` then `u` / `U` | Open / copy a URL from the pane or a docker port |
+| `Ctrl-h/j/k/l` | Move between panes, through nvim windows (`nvim/lua/rex.lua`) |
+| `Ctrl-Space` | Sessionizer: a project as a session with `nvim`, `pi` and `shell` tabs |
+
+App settings (theme, font, toolbar) are not read from the config file; Rex keeps them in macOS
+preferences. `home-mac/.config/rex/settings.sh` writes them, Nightfox included
+(`custom-themes.json`). Quit Rex and run `~/.config/rex/settings.sh` on a new Mac.
+
+Inside Rex, pi gets a `shell_job` tool (`home/.pi/agent/extensions/rex-shell.ts`) that runs
+slow commands (tests, builds, servers) in their own Rex pane and reports the result back.
+
 ## Omarchy
 
 Hyprland uses Omarchy's Lua config. `hyprland.lua` loads Omarchy's defaults first, then the files in
@@ -147,8 +169,8 @@ after every boot and Omarchy update, and send a desktop notification if anything
 │   ├── Brewfile.work   # macOS work packages (fill in yourself)
 │   ├── pacman          # Arch/Omarchy extra packages + nvim language tools
 │   └── pi              # pi extensions (all platforms)
-├── home/               # stowed to ~ on all platforms (zsh, nvim, herdr-app, git, k9s, bat, lsd, starship, pi, scripts)
-├── home-mac/           # stowed to ~ on macOS only (AeroSpace, brew zsh module, 1Password mac signing)
+├── home/               # stowed to ~ on all platforms (zsh, nvim, rex, git, k9s, bat, lsd, starship, pi, scripts)
+├── home-mac/           # stowed to ~ on macOS only (AeroSpace, Rex app settings, brew zsh module, 1Password mac signing)
 ├── home-linux/         # stowed to ~ on Omarchy only (Hyprland, Omarchy hooks, 1Password linux signing)
 ├── omarchy/themes/     # Omarchy themes, symlinked as whole directories (not stowed)
 └── .github/workflows/  # gitleaks secret scan on PRs and pushes to main
