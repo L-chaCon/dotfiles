@@ -7,23 +7,33 @@
 --   * Ctrl-h/j/k/l cross from nvim windows into Herdr panes (below).
 -- A nested nvim in the same terminal (e.g. a commit message editor) finds the socket
 -- taken and stays out of it.
+
+-- vim-tmux-navigator: Ctrl-h/j/k/l move between windows and, at nvim's edge, to the next
+-- Herdr or Rex pane. Herdr/Rex hand these keys to nvim (herdr-app/mods/navigator,
+-- rex/navigator.lua). Replaces the plain <C-w> mappings in keymaps.lua, which still apply
+-- outside them.
+local function navigator(name, cmd)
+  for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
+    vim.keymap.set("n", "<C-" .. key .. ">", function()
+      local win = vim.api.nvim_get_current_win()
+      vim.cmd("wincmd " .. key)
+      if vim.api.nvim_get_current_win() == win then
+        vim.system(cmd(direction))
+      end
+    end, { desc = "Go to window or " .. name .. " pane " .. direction })
+  end
+end
+
+if vim.env.REX_SESSION and vim.env.REX_SESSION ~= "" then
+  navigator("Rex", function(d) return { "rex", "focus", d } end)
+end
+
 local id = vim.env.HC_TERMINAL_ID
 if not id or id == "" or vim.tbl_contains(vim.v.argv, "--headless") then
   return
 end
 
--- vim-tmux-navigator: Ctrl-h/j/k/l move between windows and, at nvim's edge, to the next
--- Herdr pane. Herdr hands these keys to nvim (herdr-app/mods/navigator). Replaces the
--- plain <C-w> mappings in keymaps.lua, which still apply outside Herdr.
-for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
-  vim.keymap.set("n", "<C-" .. key .. ">", function()
-    local win = vim.api.nvim_get_current_win()
-    vim.cmd("wincmd " .. key)
-    if vim.api.nvim_get_current_win() == win then
-      vim.system({ "herdr-app", "do", "pane.go", "--direction", direction })
-    end
-  end, { desc = "Go to window or Herdr pane " .. direction })
-end
+navigator("Herdr", function(d) return { "herdr-app", "do", "pane.go", "--direction", d } end)
 
 local dir = vim.fn.stdpath("state") .. "/herdr"
 vim.fn.mkdir(dir, "p")
