@@ -51,6 +51,9 @@ w Workspace.sidebarPosition -string left
 w Workspace.sidebarShowsActivity -bool false
 w Workspace.showsKeySequenceHints -bool true
 
+# Notifications: no sounds when an agent finishes, gets blocked or fails.
+w Workspace.playsProgramActivitySounds -bool false
+
 # Experimental: Go to Anything (cmd+p, ctrl+b w) is unavailable without it.
 w Workspace.experiments.usesNewQuickSwitcher -bool true
 
